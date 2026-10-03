@@ -61,7 +61,9 @@
   };
 
   function resolveI18n(lang, override) {
-    var base = i18n[lang] || i18n[DEFAULT_LANG];
+    // Start from the default language so a partial custom language inherits
+    // any keys it doesn't define.
+    var base = Object.assign({}, i18n[DEFAULT_LANG], i18n[lang] || {});
     var o = override || {};
     var scoped = o[lang] || o[DEFAULT_LANG];
     // Accept either { next: '…' } (applies to the active language) or
@@ -116,16 +118,19 @@
    * ================================================================== */
   var renderers = {
     img: function (m) {
+      var alt = m.alt != null ? m.alt : m.caption;
       return '<figure class="media-card image-card">' +
-        '<img src="' + escAttr(m.src) + '" alt="' + escAttr(m.caption) + '" loading="eager" decoding="async">' +
+        '<img src="' + escAttr(m.src) + '" alt="' + escAttr(alt) + '" loading="eager" decoding="async">' +
         (m.caption ? '<figcaption>' + escHtml(m.caption) + '</figcaption>' : '') +
         '</figure>';
     },
     live: function (m) {
       var h = parseInt(m.height, 10) || 420;
       // Pass a unique id through so the same page can be embedded several times
-      // (each with its own data-live-id).
-      var liveSrc = m.src + (m.src.indexOf('?') === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(m.liveId);
+      // (each with its own data-live-id). Don't duplicate one already in src.
+      var liveSrc = /[?&]liveId=/.test(m.src)
+        ? m.src
+        : m.src + (m.src.indexOf('?') === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(m.liveId);
       return '<div class="media-card live-card">' +
         '<div class="live-wrap">' +
         '<iframe id="' + escAttr(m.liveId) + '" class="live-frame" data-live-id="' + escAttr(m.liveId) + '"' +
@@ -178,6 +183,7 @@
         return {
           type: el.getAttribute('data-type') || 'img',
           src: el.getAttribute('src') || '',
+          alt: el.getAttribute('alt'),
           caption: caption,
         };
       }) : [];
@@ -201,6 +207,7 @@
         return {
           type: m.type || 'img',
           src: m.src || '',
+          alt: m.alt != null ? m.alt : null,
           liveId: m.liveId || m.id || '',
           height: m.height || 420,
           caption: m.caption || '',
@@ -301,6 +308,12 @@
     }
 
     var chromeNodes = buildChrome(mountTo, T);
+    var topbar = chromeNodes[0];
+    var deck = chromeNodes[1];
+    var lightbox = chromeNodes[2];
+    var navbar = chromeNodes[3];
+    var overview = chromeNodes[4];
+    var rotateOverlay = chromeNodes[5];
 
     // Theme (remember previous values so destroy() can restore them)
     var rootStyle = doc.documentElement.style;
@@ -313,7 +326,6 @@
       doc.title = [CONFIG.title, CONFIG.subtitle].filter(Boolean).join(' · ');
     }
 
-    var deck = doc.getElementById('deck');
     var current = 0;
     var visited = new Array(total).fill(false);
 
@@ -415,8 +427,8 @@
         var gW = grid.clientWidth, gH = grid.clientHeight;
         if (!gW || !gH) return;
         var gcs = getComputedStyle(grid);
-        var colGap = parseFloat(gcs.columnGap) || 20;
-        var rowGap = parseFloat(gcs.rowGap) || 20;
+        var colGap = parseFloat(gcs.columnGap) || 0;
+        var rowGap = parseFloat(gcs.rowGap) || 0;
         var cellW = (gW - (cols - 1) * colGap) / cols;
         var cellH = (gH - (rows - 1) * rowGap) / rows;
         cards.forEach(function (card) {
@@ -483,11 +495,11 @@
     }
 
     /* ---------- top bar + navigation ---------- */
-    var sectionLabel = doc.getElementById('ld-section-label');
-    var progressInner = doc.getElementById('ld-progress-inner');
-    var stepIndicator = doc.getElementById('step-indicator');
-    var nextBtn = doc.getElementById('btn-next');
-    var prevBtn = doc.getElementById('btn-prev');
+    var sectionLabel = topbar.querySelector('#ld-section-label');
+    var progressInner = topbar.querySelector('#ld-progress-inner');
+    var stepIndicator = navbar.querySelector('#step-indicator');
+    var nextBtn = navbar.querySelector('#btn-next');
+    var prevBtn = navbar.querySelector('#btn-prev');
 
     function updateTop() {
       var s = SLIDES[current];
@@ -535,7 +547,6 @@
     if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(scheduleFit);
 
     /* ---------- image lightbox ---------- */
-    var lightbox = doc.getElementById('lightbox');
     var lbImg = lightbox.querySelector('.lb-img');
     var lbCap = lightbox.querySelector('.lb-cap');
     function openLightbox(src, cap) {
@@ -568,7 +579,7 @@
     on(nextBtn, 'click', function () { go(current + 1); });
 
     /* ---------- fullscreen ---------- */
-    var btnFull = doc.getElementById('ld-btn-fullscreen');
+    var btnFull = topbar.querySelector('#ld-btn-fullscreen');
     function toggleFullscreen() {
       if (!doc.fullscreenElement) {
         if (doc.documentElement.requestFullscreen) doc.documentElement.requestFullscreen();
@@ -584,6 +595,8 @@
     /* ---------- keyboard ---------- */
     on(doc, 'keydown', function (e) {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      // Don't navigate behind a modal overlay (Esc closes the lightbox).
+      if (lightbox.classList.contains('open') || rotateOverlay.classList.contains('show')) return;
       var t = e.target;
       // Don't steal keys from editable fields.
       if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
@@ -610,7 +623,6 @@
     }, { passive: true });
 
     /* ---------- overview ---------- */
-    var overview = doc.getElementById('overview');
     function renderOverview() {
       var grid = overview.querySelector('.overview-grid');
       grid.innerHTML = SLIDES.map(function (s, i) {
@@ -627,7 +639,7 @@
     function toggleOverview() {
       overview.classList.contains('open') ? closeOverview() : openOverview();
     }
-    on(doc.getElementById('ld-btn-menu'), 'click', toggleOverview);
+    on(topbar.querySelector('#ld-btn-menu'), 'click', toggleOverview);
     on(overview, 'click', function (e) {
       var card = e.target && e.target.closest ? e.target.closest('.ov-card') : null;
       if (card) { go(parseInt(card.dataset.index, 10)); closeOverview(); }
@@ -635,7 +647,6 @@
     });
 
     /* ---------- rotate hint ---------- */
-    var rotateOverlay = doc.getElementById('rotate-overlay');
     var rotateDismissed = false;
     function isPortraitSmall() {
       return window.matchMedia('(orientation: portrait)').matches && window.innerWidth <= 820;
@@ -643,7 +654,7 @@
     function checkRotate() {
       if (!rotateDismissed) rotateOverlay.classList.toggle('show', isPortraitSmall());
     }
-    on(doc.getElementById('rotate-continue'), 'click', function () {
+    on(rotateOverlay.querySelector('#rotate-continue'), 'click', function () {
       rotateDismissed = true;
       rotateOverlay.classList.remove('show');
     });

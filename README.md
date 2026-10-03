@@ -7,7 +7,7 @@ keyboard-driven, two-column deck you can click, swipe and embed live demos in.
 - 🖱️ Live, interactive `<iframe>` embeds (simulators, demos, widgets, anything)
 - 🖼️ Click-to-zoom lightbox, overview grid, fullscreen, keyboard & touch navigation
 - 🌍 i18n with built-in `en` / `zh-CN` and easy overrides
-- 🧩 No dependencies, no build step — one JS file + one CSS file
+- 🧩 No dependencies, no build step — one CSS file, `livedeck.js`, and an optional `livedeck-live.js`
 - 📄 Slides can be declared in HTML **or** passed to `LiveDeck.mount()`
 
 ▶ **Live tutorial (an example deck):** <https://jia.je/livedeck/>
@@ -181,7 +181,8 @@ LiveDeck.i18n.fr = {
 ```
 
 The empty state is intentionally author-controlled: `emptyHint` is empty by default, and you
-can replace the whole state with a custom `renderers.empty`.
+can replace the whole state with a custom `renderers.empty`. Keys you don't define in a
+custom language fall back to the built-in `en` strings.
 
 ## Theming
 
