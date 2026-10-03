@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 240" width="440" height="240" role="img" aria-label="AND gate: output is 1 only when A and B are both 1">
+  <defs>
+    <style>
+      .wire { stroke: #334155; stroke-width: 3; fill: none; stroke-linecap: round; }
+      .gate { fill: #eef2ff; stroke: #2563eb; stroke-width: 3; }
+      .lbl { font: 700 20px -apple-system, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }
+      .val { font: 600 15px -apple-system, "Segoe UI", Roboto, sans-serif; fill: #64748b; }
+    </style>
+  </defs>
+
+  <!-- inputs -->
+  <line class="wire" x1="60" y1="85" x2="165" y2="85" />
+  <line class="wire" x1="60" y1="155" x2="165" y2="155" />
+  <circle cx="60" cy="85" r="4" fill="#334155" />
+  <circle cx="60" cy="155" r="4" fill="#334155" />
+  <text class="lbl" x="30" y="78">A</text>
+  <text class="lbl" x="30" y="148">B</text>
+
+  <!-- gate body -->
+  <path class="gate" d="M165 60 H250 A60 60 0 0 1 250 180 H165 Z" />
+  <text class="val" x="196" y="128">AND</text>
+
+  <!-- output -->
+  <line class="wire" x1="310" y1="120" x2="395" y2="120" />
+  <circle cx="395" cy="120" r="4" fill="#334155" />
+  <text class="lbl" x="360" y="108">C</text>
+
+  <!-- truth hint -->
+  <text class="val" x="150" y="222">C = A ∧ B  ·  "all 1s give 1"</text>
+</svg>

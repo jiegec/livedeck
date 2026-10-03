@@ -1,0 +1,7 @@
+# Build output
+_site/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp

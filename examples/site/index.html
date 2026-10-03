@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>LiveDeck tutorial</title>
+  <link rel="stylesheet" href="./livedeck.css">
+</head>
+
+<body>
+  <!-- Config -->
+  <div id="presentation-config" hidden data-title="LiveDeck tutorial" data-subtitle="Interactive web slides"
+    data-accent="#2563eb" data-accent2="#7c3aed" data-lang="en" data-fullscreen-on-load="false"
+    data-overview-on-load="false"></div>
+
+  <!-- Slides: this deck *is* the tutorial -->
+  <template id="deck-source">
+    <section class="slide-source" data-section="LiveDeck" data-title="Interactive web slides">
+      <div data-content>
+        <p class="lead"><b>LiveDeck</b> turns a plain HTML page into full-screen slides: content on
+          the left, media on the right, everything scaled to fit.</p>
+        <div class="note info">
+          <div class="note-title">🎯 In this tutorial</div>
+          <ul>
+            <li>Load the files</li>
+            <li>Write a slide in HTML</li>
+            <li>Add images and <b>live</b> iframes</li>
+            <li>Present, theme and translate it</li>
+          </ul>
+        </div>
+        <p class="hint">Move with <code>←</code> <code>→</code> · press <code>G</code> for the overview.</p>
+      </div>
+      <div data-media>
+        <img src="assets/and-gate.svg" alt="AND gate"
+          data-caption="Content left, media right — scaled to fit any screen">
+      </div>
+    </section>
+
+    <section class="slide-source" data-section="Step 1" data-title="Load the files">
+      <div data-content>
+        <p>Add the stylesheet in <code>&lt;head&gt;</code> and the script at the end of
+          <code>&lt;body&gt;</code>. There is no build step.
+        </p>
+        <div class="code-block">&lt;link rel="stylesheet" href="livedeck.css"&gt;
+
+          ...
+
+          &lt;script src="livedeck.js"&gt;&lt;/script&gt;</div>
+        <p>Then describe the deck with a config element and a template. Each
+          <code>.slide-source</code> is one step; <code>[data-content]</code> is the left column and
+          <code>[data-media]</code> the right.
+        </p>
+        <div class="code-block">&lt;div id="presentation-config" hidden
+          data-title="My deck" data-accent="#2563eb"&gt;&lt;/div&gt;
+
+          &lt;template id="deck-source"&gt;
+          &lt;section class="slide-source" data-section="Intro" data-title="Hello"&gt;
+          &lt;div data-content&gt;&lt;p&gt;Welcome!&lt;/p&gt;&lt;/div&gt;
+          &lt;div data-media&gt;...&lt;/div&gt;
+          &lt;/section&gt;
+          &lt;/template&gt;</div>
+      </div>
+      <div data-media>
+        <img src="assets/and-gate.svg" alt="AND gate" data-caption="One template, many steps">
+      </div>
+    </section>
+
+    <section class="slide-source" data-section="Step 2" data-title="Add an image">
+      <div data-content>
+        <p>Put an <code>&lt;img&gt;</code> in <code>[data-media]</code>. It is scaled to fit and opens
+          in a lightbox when clicked.</p>
+        <div class="code-block">&lt;div data-media&gt;
+          &lt;img src="assets/and-gate.svg" alt="AND gate"
+          data-caption="A caption under the image"&gt;
+          &lt;/div&gt;</div>
+        <p class="hint">This slide's media is exactly that image — try clicking it.</p>
+      </div>
+      <div data-media>
+        <img src="assets/and-gate.svg" alt="AND gate" data-caption="A caption under the image">
+      </div>
+    </section>
+
+    <section class="slide-source" data-section="Step 3" data-title="Embed a live page">
+      <div data-content>
+        <p>Any page can be embedded with an <code>&lt;iframe&gt;</code> — a simulator, a demo, a
+          widget. Give it a unique <code>data-live-id</code>:</p>
+        <div class="code-block">&lt;iframe data-live-id="and-gate" src="live/and-gate.html"
+          data-height="420" data-caption="A live page"&gt;&lt;/iframe&gt;</div>
+        <p>For auto-sizing, add one line to the embedded page:</p>
+        <div class="code-block">&lt;script src="livedeck-live.js"&gt;&lt;/script&gt;
+          &lt;script&gt;LiveDeck.live.autoResize();&lt;/script&gt;</div>
+      </div>
+      <div data-media>
+        <iframe data-live-id="and-gate" src="live/and-gate.html" data-height="420"
+          data-caption="🖱️ A real, clickable page embedded in the deck"></iframe>
+      </div>
+    </section>
+
+    <section class="slide-source" data-section="Step 4" data-title="Mix media">
+      <div data-content>
+        <p>Add several media items — they are arranged in equal cells and all scaled to fit.</p>
+        <div class="code-block">&lt;div data-media&gt;
+          &lt;img src="assets/and-gate.svg" data-caption="Image"&gt;
+          &lt;iframe data-live-id="and-gate-2" src="live/and-gate.html"
+          data-height="420"&gt;&lt;/iframe&gt;
+          &lt;/div&gt;</div>
+        <p class="hint">The same page can be embedded many times — just use different
+          <code>data-live-id</code> values.
+        </p>
+      </div>
+      <div data-media>
+        <img src="assets/and-gate.svg" alt="AND gate" data-caption="An image">
+        <iframe data-live-id="and-gate-2" src="live/and-gate.html" data-height="420"
+          data-caption="The same page, embedded a second time"></iframe>
+      </div>
+    </section>
+
+    <section class="slide-source" data-section="Step 5" data-title="Present it">
+      <div data-content>
+        <p>Navigation, the overview and fullscreen are built in.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>→</code> / <code>Space</code></td>
+                <td>Next</td>
+              </tr>
+              <tr>
+                <td><code>←</code></td>
+                <td>Previous</td>
+              </tr>
+              <tr>
+                <td><code>G</code> / <code>Esc</code></td>
+                <td>Overview</td>
+              </tr>
+              <tr>
+                <td><code>F</code></td>
+                <td>Fullscreen</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Swipe left/right on touch devices.</p>
+      </div>
+      <div data-media>
+        <img src="assets/and-gate.svg" alt="AND gate"
+          data-caption="Progress bar, overview and fullscreen are automatic">
+      </div>
+    </section>
+
+    <section class="slide-source" data-section="Step 6" data-title="Make it yours">
+      <div data-content>
+        <p>Set the accents in the config, or override the CSS variables in
+          <code>livedeck.css</code>:
+        </p>
+        <div class="code-block">:root {
+          --accent: #2563eb;
+          --accent2: #7c3aed;
+          }</div>
+        <p>Translate the UI by extending <code>LiveDeck.i18n</code>:</p>
+        <div class="code-block">LiveDeck.i18n.fr = { next: 'Suivant ▶', prev: '◀ Précédent' };
+          LiveDeck.mount({ lang: 'fr' }); // or set data-lang="fr"</div>
+        <p class="hint">That's the whole API — the full reference is in the README.</p>
+      </div>
+      <div data-media>
+        <img src="assets/and-gate.svg" alt="AND gate" data-caption="Theme it with a few variables">
+      </div>
+    </section>
+  </template>
+
+  <script src="./livedeck.js"></script>
+</body>
+
+</html>

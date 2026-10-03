@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AND gate · LiveDeck live embed</title>
+  <style>
+    :root {
+      --on: #16a34a;
+      --off: #cbd5e1;
+      --ink: #0f172a;
+      --line: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      padding: 18px 20px 22px;
+      width: 520px;
+    }
+
+    h1 {
+      font-size: 16px;
+      margin: 0 0 4px
+    }
+
+    p.sub {
+      margin: 0 0 16px;
+      font-size: 13px;
+      color: #64748b
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 14px
+    }
+
+    .switches {
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    button.sw {
+      width: 108px;
+      height: 46px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: #f8fafc;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      transition: border-color .15s, background .15s
+    }
+
+    button.sw:hover {
+      border-color: #94a3b8
+    }
+
+    button.sw .v {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--off);
+      color: #fff;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    button.sw[aria-pressed="true"] {
+      background: #f0fdf4;
+      border-color: var(--on)
+    }
+
+    button.sw[aria-pressed="true"] .v {
+      background: var(--on)
+    }
+
+    .arrow {
+      font-size: 26px;
+      color: #94a3b8
+    }
+
+    .lamp-wrap {
+      text-align: center
+    }
+
+    .lamp {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--off);
+      box-shadow: inset 0 3px 8px rgba(0, 0, 0, .18);
+      transition: background .15s, box-shadow .15s
+    }
+
+    .lamp.on {
+      background: var(--on);
+      box-shadow: 0 0 0 6px rgba(22, 163, 74, .18), inset 0 3px 8px rgba(0, 0, 0, .12)
+    }
+
+    .lamp-label {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #64748b
+    }
+
+    table {
+      margin-top: 18px;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 6px 0;
+      text-align: center
+    }
+
+    th {
+      background: #f1f5f9
+    }
+
+    tr.active td {
+      background: #ecfdf5;
+      font-weight: 700;
+      color: #15803d
+    }
+  </style>
+</head>
+
+<body>
+  <h1>AND gate</h1>
+  <p class="sub">Click the switches. The lamp turns on only when <b>A</b> and <b>B</b> are both <b>1</b>.</p>
+
+  <div class="row">
+    <div class="switches">
+      <button class="sw" id="a" aria-pressed="false">A <span class="v">0</span></button>
+      <button class="sw" id="b" aria-pressed="false">B <span class="v">0</span></button>
+    </div>
+    <div class="arrow">→</div>
+    <div class="lamp-wrap">
+      <div class="lamp" id="lamp"></div>
+      <div class="lamp-label">C = A ∧ B</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>A</th>
+        <th>B</th>
+        <th>C</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr data-a="0" data-b="0">
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+      </tr>
+      <tr data-a="0" data-b="1">
+        <td>0</td>
+        <td>1</td>
+        <td>0</td>
+      </tr>
+      <tr data-a="1" data-b="0">
+        <td>1</td>
+        <td>0</td>
+        <td>0</td>
+      </tr>
+      <tr data-a="1" data-b="1">
+        <td>1</td>
+        <td>1</td>
+        <td>1</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <script src="../livedeck-live.js"></script>
+  <script>
+    var state = { a: 0, b: 0 };
+    var elA = document.getElementById('a');
+    var elB = document.getElementById('b');
+    var lamp = document.getElementById('lamp');
+    var rows = Array.prototype.slice.call(document.querySelectorAll('tbody tr'));
+
+    function render() {
+      var c = state.a && state.b ? 1 : 0;
+      [['a', elA], ['b', elB]].forEach(function (pair) {
+        var on = state[pair[0]] === 1;
+        pair[1].setAttribute('aria-pressed', on ? 'true' : 'false');
+        pair[1].querySelector('.v').textContent = on ? '1' : '0';
+      });
+      lamp.classList.toggle('on', c === 1);
+      rows.forEach(function (r) {
+        r.classList.toggle('active', +r.dataset.a === state.a && +r.dataset.b === state.b);
+      });
+    }
+
+    function toggle(which) { state[which] = state[which] ? 0 : 1; render(); }
+    elA.addEventListener('click', function () { toggle('a'); });
+    elB.addEventListener('click', function () { toggle('b'); });
+
+    render();
+    LiveDeck.live.autoResize();
+  </script>
+</body>
+
+</html>
