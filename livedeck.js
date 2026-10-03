@@ -65,7 +65,7 @@
     // any keys it doesn't define.
     var base = Object.assign({}, i18n[DEFAULT_LANG], i18n[lang] || {});
     var o = override || {};
-    var scoped = o[lang] || o[DEFAULT_LANG];
+    var scoped = o[lang];
     // Accept either { next: '…' } (applies to the active language) or
     // { en: { next: '…' } } (per-language overrides).
     if (scoped && typeof scoped === 'object') return Object.assign({}, base, scoped);
@@ -296,7 +296,10 @@
     var timers = [];
     var destroyed = false;
     function later(fn, ms) {
-      var id = setTimeout(function () { if (!destroyed) fn(); }, ms);
+      var id = setTimeout(function () {
+        timers = timers.filter(function (t) { return t !== id; });
+        if (!destroyed) fn();
+      }, ms);
       timers.push(id);
       return id;
     }
@@ -580,11 +583,16 @@
 
     /* ---------- fullscreen ---------- */
     var btnFull = topbar.querySelector('#ld-btn-fullscreen');
+    // requestFullscreen()/exitFullscreen() return a Promise that rejects when
+    // the call isn't allowed (no user gesture, missing allowfullscreen, …).
+    function quiet(promise) {
+      if (promise && typeof promise.catch === 'function') promise.catch(function () { /* ignore */ });
+    }
     function toggleFullscreen() {
       if (!doc.fullscreenElement) {
-        if (doc.documentElement.requestFullscreen) doc.documentElement.requestFullscreen();
+        if (doc.documentElement.requestFullscreen) quiet(doc.documentElement.requestFullscreen());
       } else if (doc.exitFullscreen) {
-        doc.exitFullscreen();
+        quiet(doc.exitFullscreen());
       }
     }
     on(btnFull, 'click', toggleFullscreen);
@@ -667,7 +675,7 @@
     go(step && step >= 1 && step <= total ? step - 1 : 0);
     scheduleFit();
     if (CONFIG.fullScreenOnLoad && doc.documentElement.requestFullscreen) {
-      try { doc.documentElement.requestFullscreen(); } catch (e) { /* ignore */ }
+      quiet(doc.documentElement.requestFullscreen());
     }
     if (CONFIG.showOverviewOnLoad) openOverview();
 
