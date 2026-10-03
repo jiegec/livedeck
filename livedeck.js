@@ -358,8 +358,8 @@
         '<div class="slide-inner">' +
         '<div class="panel left-panel">' +
         '<div class="fit-wrap"><div class="panel-inner">' +
-        '<div class="section-badge">' + escHtml(s.section) + '</div>' +
-        '<h2 class="slide-title">' + escHtml(s.title) + '</h2>' +
+        (s.section ? '<div class="section-badge">' + escHtml(s.section) + '</div>' : '') +
+        (s.title ? '<h2 class="slide-title">' + escHtml(s.title) + '</h2>' : '') +
         '<div class="ld-content">' + s.content + '</div>' +
         '</div></div></div>' +
         '<div class="panel right-panel">' +
@@ -513,6 +513,7 @@
     }
 
     function go(index) {
+      if (destroyed) return;
       index = Math.round(Number(index));
       if (!isFinite(index)) return;
       if (index < 0) index = 0;
@@ -552,9 +553,9 @@
     /* ---------- image lightbox ---------- */
     var lbImg = lightbox.querySelector('.lb-img');
     var lbCap = lightbox.querySelector('.lb-cap');
-    function openLightbox(src, cap) {
+    function openLightbox(src, cap, alt) {
       lbImg.src = src;
-      lbImg.alt = cap || '';
+      lbImg.alt = alt || cap || '';
       lbCap.textContent = cap || '';
       lightbox.classList.add('open');
     }
@@ -567,7 +568,7 @@
       on(card, 'click', function () {
         var img = card.querySelector('img');
         var cap = card.querySelector('figcaption');
-        if (img) openLightbox(img.currentSrc || img.src, cap ? cap.textContent : '');
+        if (img) openLightbox(img.currentSrc || img.src, cap ? cap.textContent : '', img.alt);
       });
     });
     on(lightbox, 'click', function (e) {
@@ -642,7 +643,7 @@
           '</button>';
       }).join('');
     }
-    function openOverview() { renderOverview(); overview.classList.add('open'); }
+    function openOverview() { if (destroyed) return; renderOverview(); overview.classList.add('open'); }
     function closeOverview() { overview.classList.remove('open'); }
     function toggleOverview() {
       overview.classList.contains('open') ? closeOverview() : openOverview();

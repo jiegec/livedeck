@@ -3,7 +3,7 @@
 **Interactive web slides.** Write your content as normal HTML — LiveDeck turns it into a full-screen,
 keyboard-driven, two-column deck you can click, swipe and embed live demos in.
 
-- 📑 Content left, media right, both auto-scaled to fit any screen (no overflow, no scrollbars)
+- 📑 Content left, media right, both auto-scaled to fit any screen
 - 🖱️ Live, interactive `<iframe>` embeds (simulators, demos, widgets, anything)
 - 🖼️ Click-to-zoom lightbox, overview grid, fullscreen, keyboard & touch navigation
 - 🌍 i18n with built-in `en` / `zh-CN` and easy overrides
