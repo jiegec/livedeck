@@ -398,13 +398,11 @@
       wrap.style.transform = 'scale(1)';
       wrap.style.height = 'auto';
       inner.style.width = '100%';
-      var cs = getComputedStyle(inner);
-      var padTB = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
       var scale = 1, contentH = H;
       for (var k = 0; k < 8; k++) {
         inner.style.width = (W / scale) + 'px'; // widen, then scale down
         contentH = wrap.scrollHeight;
-        var ns = Math.sqrt((H - padTB) / contentH * scale);
+        var ns = Math.sqrt(H / contentH * scale); // fill the panel height
         if (Math.abs(ns - scale) < 0.006) { scale = ns; break; }
         scale = ns;
       }
@@ -604,15 +602,25 @@
     });
 
     /* ---------- keyboard ---------- */
+    // True for a target that should own every keystroke (text fields, etc.).
+    function isTypingTarget(t) {
+      if (!t) return false;
+      if (t.isContentEditable) return true;
+      if (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return true;
+      if (t.tagName !== 'INPUT') return false;
+      var type = (t.getAttribute('type') || 'text').toLowerCase();
+      return ['button', 'submit', 'reset', 'checkbox', 'radio', 'range', 'color', 'file', 'image'].indexOf(type) === -1;
+    }
+
     on(doc, 'keydown', function (e) {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       // Don't navigate behind a modal overlay (Esc closes the lightbox).
       if (lightbox.classList.contains('open') || rotateOverlay.classList.contains('show')) return;
       var t = e.target;
-      // Don't steal keys from editable fields.
-      if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
-      // Let Space/Enter activate a focused button/link natively.
-      if (t && (t.tagName === 'BUTTON' || t.tagName === 'A') && (e.key === ' ' || e.key === 'Enter')) return;
+      if (isTypingTarget(t)) return;
+      // Let a focused button/link/control handle Space/Enter itself.
+      if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'INPUT' || t.tagName === 'SUMMARY') &&
+          (e.key === ' ' || e.key === 'Enter')) return;
       if (['ArrowRight', 'PageDown'].indexOf(e.key) !== -1 || e.key === ' ') { e.preventDefault(); go(current + 1); }
       else if (['ArrowLeft', 'PageUp'].indexOf(e.key) !== -1) { e.preventDefault(); go(current - 1); }
       else if (e.key === 'Home') go(0);

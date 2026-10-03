@@ -235,7 +235,8 @@ python3 -m http.server -d _site 8080
 ## Browser support
 
 Evergreen browsers (Chrome, Edge, Firefox, Safari). Requires `ResizeObserver` (for live
-embeds) and `Element.append`; both are available in evergreen browsers.
+embeds) and standard ES2015+ DOM APIs (`Object.assign`, `Element.append`/`Element.closest`,
+`NodeList.forEach`, `String.padStart`, …).
 
 ## License
 
