@@ -202,7 +202,7 @@
       section: s.section || '',
       title: s.title || '',
       content: s.content != null ? s.content : '',
-      media: (s.media || []).map(function (m) {
+      media: (Array.isArray(s.media) ? s.media : (s.media == null ? [] : [s.media])).map(function (m) {
         if (typeof m === 'string') return { type: 'img', src: m, caption: '' };
         return {
           type: m.type || 'img',
@@ -277,7 +277,9 @@
     var doc = document;
     var CONFIG = readConfig(options);
     var T = resolveI18n(CONFIG.lang, options.i18n);
-    var SLIDES = options.slides ? options.slides.map(normalizeSlide) : readSlides(options);
+    var SLIDES = options.slides
+      ? (Array.isArray(options.slides) ? options.slides : [options.slides]).map(normalizeSlide)
+      : readSlides(options);
     if (!SLIDES.length) {
       console.warn('[livedeck] no slides found (looked for .slide-source in a template)');
       return null;
@@ -672,6 +674,12 @@
     checkRotate();
     on(window, 'resize', function () { checkRotate(); scheduleFit(); });
     on(window, 'orientationchange', function () { checkRotate(); scheduleFit(); });
+    // Follow runtime hash changes (in-page links, manual edits). The deck's own
+    // replaceState rewrites don't fire hashchange, so this can't loop.
+    on(window, 'hashchange', function () {
+      var n = parseInt((location.hash || '').replace('#step-', ''), 10);
+      if (n >= 1 && n <= total && n - 1 !== current) go(n - 1);
+    });
     var step = parseInt((location.hash || '').replace('#step-', ''), 10);
     go(step && step >= 1 && step <= total ? step - 1 : 0);
     scheduleFit();

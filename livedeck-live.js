@@ -85,9 +85,19 @@
       });
     }
 
+    var observer = null;
+    function startObserver() {
+      if (stopped || observer || typeof ResizeObserver !== 'function') return;
+      var target = options.observe || document.body || document.documentElement;
+      if (!target) return;
+      observer = new ResizeObserver(schedule);
+      observer.observe(target);
+    }
+
     function initial() {
       if (stopped || started) return;
       started = true;
+      startObserver();
       sendSize(options);
       requestAnimationFrame(function () { if (!stopped) sendSize(options); });
       later(function () { sendSize(options); }, 60);
@@ -98,13 +108,6 @@
     else window.addEventListener('load', initial);
 
     window.addEventListener('resize', schedule);
-
-    var observer = null;
-    var target = options.observe || document.body;
-    if (typeof ResizeObserver === 'function' && target) {
-      observer = new ResizeObserver(schedule);
-      observer.observe(target);
-    }
 
     return {
       send: function () { sendSize(options); },
