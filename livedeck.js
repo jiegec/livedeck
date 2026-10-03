@@ -122,7 +122,7 @@
         '</figure>';
     },
     live: function (m) {
-      var h = m.height || 420;
+      var h = parseInt(m.height, 10) || 420;
       // Pass a unique id through so the same page can be embedded several times
       // (each with its own data-live-id).
       var liveSrc = m.src + (m.src.indexOf('?') === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(m.liveId);
@@ -302,9 +302,13 @@
 
     var chromeNodes = buildChrome(mountTo, T);
 
-    // Theme
-    doc.documentElement.style.setProperty('--accent', CONFIG.accent);
-    doc.documentElement.style.setProperty('--accent2', CONFIG.accent2);
+    // Theme (remember previous values so destroy() can restore them)
+    var rootStyle = doc.documentElement.style;
+    var prevAccent = rootStyle.getPropertyValue('--accent');
+    var prevAccent2 = rootStyle.getPropertyValue('--accent2');
+    var prevTitle = doc.title;
+    rootStyle.setProperty('--accent', CONFIG.accent);
+    rootStyle.setProperty('--accent2', CONFIG.accent2);
     if (CONFIG.title || CONFIG.subtitle) {
       doc.title = [CONFIG.title, CONFIG.subtitle].filter(Boolean).join(' · ');
     }
@@ -410,9 +414,11 @@
       requestAnimationFrame(function () {
         var gW = grid.clientWidth, gH = grid.clientHeight;
         if (!gW || !gH) return;
-        var GAP = 20; // must match .media-grid gap in CSS
-        var cellW = (gW - (cols - 1) * GAP) / cols;
-        var cellH = (gH - (rows - 1) * GAP) / rows;
+        var gcs = getComputedStyle(grid);
+        var colGap = parseFloat(gcs.columnGap) || 20;
+        var rowGap = parseFloat(gcs.rowGap) || 20;
+        var cellW = (gW - (cols - 1) * colGap) / cols;
+        var cellH = (gH - (rows - 1) * rowGap) / rows;
         cards.forEach(function (card) {
           if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH);
           else fitImageCard(card, cellW, cellH);
@@ -492,6 +498,8 @@
     }
 
     function go(index) {
+      index = Math.round(Number(index));
+      if (!isFinite(index)) return;
       if (index < 0) index = 0;
       if (index > total - 1) { openOverview(); return; }
       closeOverview();
@@ -508,15 +516,15 @@
 
     /* ---------- live iframe auto height ---------- */
     on(window, 'message', function (e) {
-      if (e.data && e.data.type === 'resize' && e.data.id && e.data.height) {
-        var frame = doc.getElementById(e.data.id);
-        if (frame) {
-          if (e.data.width) { frame.dataset.natW = e.data.width; frame.style.width = e.data.width + 'px'; }
-          frame.dataset.natH = e.data.height;
-          frame.style.height = e.data.height + 'px';
-        }
-        scheduleFit();
-      }
+      if (!e.data || e.data.type !== 'resize' || !e.data.id || !e.data.height) return;
+      var frame = doc.getElementById(e.data.id);
+      if (!frame || frame.tagName !== 'IFRAME' || !frame.classList.contains('live-frame')) return;
+      // Only trust messages that actually came from this embed.
+      if (e.source && frame.contentWindow !== e.source) return;
+      if (e.data.width) { frame.dataset.natW = e.data.width; frame.style.width = e.data.width + 'px'; }
+      frame.dataset.natH = e.data.height;
+      frame.style.height = e.data.height + 'px';
+      scheduleFit();
     });
 
     // Re-fit after images load / fonts are ready.
@@ -538,7 +546,7 @@
     }
     function closeLightbox() {
       lightbox.classList.remove('open');
-      lbImg.src = '';
+      lbImg.removeAttribute('src');
     }
     deck.querySelectorAll('.media-card.image-card').forEach(function (card) {
       card.style.cursor = 'zoom-in';
@@ -575,6 +583,12 @@
 
     /* ---------- keyboard ---------- */
     on(doc, 'keydown', function (e) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      var t = e.target;
+      // Don't steal keys from editable fields.
+      if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+      // Let Space/Enter activate a focused button/link natively.
+      if (t && (t.tagName === 'BUTTON' || t.tagName === 'A') && (e.key === ' ' || e.key === 'Enter')) return;
       if (['ArrowRight', 'PageDown'].indexOf(e.key) !== -1 || e.key === ' ') { e.preventDefault(); go(current + 1); }
       else if (['ArrowLeft', 'PageUp'].indexOf(e.key) !== -1) { e.preventDefault(); go(current - 1); }
       else if (e.key === 'Home') go(0);
@@ -584,11 +598,15 @@
     });
 
     /* ---------- touch swipe ---------- */
-    var touchX = 0;
-    on(doc, 'touchstart', function (e) { touchX = e.changedTouches[0].clientX; }, { passive: true });
+    var touchX = 0, touchY = 0;
+    on(doc, 'touchstart', function (e) {
+      touchX = e.changedTouches[0].clientX;
+      touchY = e.changedTouches[0].clientY;
+    }, { passive: true });
     on(doc, 'touchend', function (e) {
       var dx = e.changedTouches[0].clientX - touchX;
-      if (Math.abs(dx) > 60) { dx < 0 ? go(current + 1) : go(current - 1); }
+      var dy = e.changedTouches[0].clientY - touchY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) { dx < 0 ? go(current + 1) : go(current - 1); }
     }, { passive: true });
 
     /* ---------- overview ---------- */
@@ -673,6 +691,9 @@
         listeners.length = 0;
         chromeNodes.forEach(function (n) { if (n && n.remove) n.remove(); });
         if (doc.body) doc.body.removeAttribute('data-livedeck-mounted');
+        if (prevAccent) rootStyle.setProperty('--accent', prevAccent); else rootStyle.removeProperty('--accent');
+        if (prevAccent2) rootStyle.setProperty('--accent2', prevAccent2); else rootStyle.removeProperty('--accent2');
+        doc.title = prevTitle;
         emit('destroy');
       },
     };
