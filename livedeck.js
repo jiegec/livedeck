@@ -91,6 +91,24 @@
     return escHtml(s).replace(/"/g, '&quot;');
   }
 
+  // Remove the leading blank line and the common indentation shared by the
+  // remaining lines. Applied only when a block's text starts on a new line, so
+  // content written flush against the tag is left untouched. This lets authors
+  // indent <pre>/code blocks inside the markup without that indentation showing.
+  function dedentBlock(text) {
+    var s = String(text);
+    if (!/^[ \t]*\r?\n/.test(s)) return s;
+    var lines = s.replace(/^[ \t]*\r?\n/, '').replace(/\s+$/, '').split('\n');
+    var min = Infinity;
+    lines.forEach(function (line) {
+      if (!line.trim()) return;
+      var n = line.match(/^[ \t]*/)[0].length;
+      if (n < min) min = n;
+    });
+    if (!isFinite(min) || min === 0) return lines.join('\n');
+    return lines.map(function (line) { return line.slice(min); }).join('\n');
+  }
+
   /* ================================================================== *
    * default media renderers — keyed by media.type.
    * Each renderer is (media, T) => HTML string. Override or add your own
@@ -331,6 +349,11 @@
         '</div></div></div>' +
         '</div>';
       deck.appendChild(el);
+      // Strip the markup indentation from code/formula blocks authored on their
+      // own indented lines (see dedentBlock).
+      Array.prototype.slice.call(el.querySelectorAll('.code-block, .formula-block')).forEach(function (block) {
+        if (!block.children.length) block.textContent = dedentBlock(block.textContent);
+      });
     });
 
     var slides = Array.prototype.slice.call(deck.querySelectorAll('.slide'));

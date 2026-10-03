@@ -203,6 +203,12 @@ The content components (`.note`, `.code-block`, `.formula-block`, `.table-wrap`,
 `.checklist`, …) are part
 of the bundled stylesheet; replace that section with your own theme if you like.
 
+`.code-block` and `.formula-block` are dedented automatically: when the block's
+text starts on its own line, the common leading indentation is removed. So you can
+indent the markup naturally without that indentation showing up in the rendered
+code. (Starting the text right after the opening tag opts out and preserves it
+verbatim.)
+
 ## Project layout
 
 ```
