@@ -320,7 +320,7 @@ body {
   min-height: 0;
   width: 100%;
   object-fit: contain;
-  background: #111;
+  background: #fff;
 }
 
 #lightbox .lb-cap {
