@@ -95,8 +95,7 @@ LiveDeck lays the frame out at its natural size before scaling it into the cell.
 The same page can be embedded several times — every frame is measured and scaled on its
 own. An embed needs no name: the deck recognises a report by the window it came from, your
 `src` is emitted exactly as written, and every copy of a page shares one URL and one cache
-entry. (A hand-written `?liveId=…` in `src` is still there for the embed to read; it is
-what `LiveDeck.live.id()` reports, nothing the deck routes on.)
+entry.
 
 `LiveDeck.live` measures the page's **own box**, so give the embedded page an explicit
 content width (e.g. `body { width: 520px }`). To measure something else, pass a custom

@@ -3,9 +3,9 @@
  *  It reports the page size to the parent deck so the deck can lay the embed
  *  out at its natural size and scale it to fit.
  *
- *  Contract with LiveDeck: postMessage({ type: 'resize', id, width, height }).
- *  The deck ties a report to the card it came from by looking at the sending
- *  window, so `id` is only informational — nothing has to identify the frame.
+ *  Contract with LiveDeck: postMessage({ type: 'resize', width, height }).
+ *  A report carries no identifier: the deck ties it to the card the message
+ *  came from by looking at the sending window, so nothing has to name the embed.
  *  MIT licensed.
  */
 (function (root, factory) {
@@ -19,20 +19,6 @@
   'use strict';
 
   var VERSION = '0.1.0';
-
-  /* Resolve the id, for the payload and for callers of LiveDeck.live.id():
-   * ?liveId=... wins, then an explicit fallback, then the file name (so the
-   * page also works when opened alone). The deck does not need it to route a
-   * report, so a page that never resolves one still auto-sizes. */
-  function id(fallback) {
-    var q = null;
-    try {
-      q = new URLSearchParams(location.search).get('liveId');
-    } catch (e) { /* very old browsers */ }
-    if (q) return q;
-    if (fallback) return fallback;
-    return (location.pathname.split('/').pop() || 'live').replace(/\.html$/, '');
-  }
 
   function defaultMeasure() {
     var body = document.body;
@@ -48,21 +34,18 @@
     return { width: w, height: h };
   }
 
-  /* Send one size update to the parent. Safe to call at any time. */
+  /* Send one size update to the parent. Safe to call at any time; a page that
+   * is not embedded has nobody to report to and sends nothing. */
   function sendSize(options) {
     options = options || {};
     var measure = typeof options.measure === 'function' ? options.measure : defaultMeasure;
     var size = measure() || {};
-    var liveId = options.id || id(options.fallbackId);
-    if (window.parent !== window && liveId) {
-      window.parent.postMessage({
-        type: 'resize',
-        id: liveId,
-        width: size.width || 0,
-        height: size.height || 0,
-      }, '*');
+    var width = size.width || 0;
+    var height = size.height || 0;
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'resize', width: width, height: height }, '*');
     }
-    return { id: liveId, width: size.width || 0, height: size.height || 0 };
+    return { width: width, height: height };
   }
 
   /* Watch the page and keep the parent in sync with its natural size.
@@ -126,5 +109,5 @@
     };
   }
 
-  return { autoResize: autoResize, sendSize: sendSize, id: id, version: VERSION };
+  return { autoResize: autoResize, sendSize: sendSize, version: VERSION };
 });
