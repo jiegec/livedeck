@@ -116,6 +116,18 @@
    * Each renderer is (media, T) => HTML string. Override or add your own
    * via `options.renderers`.
    * ================================================================== */
+  // Pass the embed's unique id through the URL so the same page can be embedded
+  // several times (each with its own data-live-id). The query goes before any
+  // #fragment, otherwise the embed would see an empty location.search.
+  function withLiveId(src, liveId) {
+    src = String(src == null ? '' : src);
+    if (!src || !liveId || /[?&]liveId=/.test(src)) return src;
+    var hash = src.indexOf('#');
+    var base = hash === -1 ? src : src.slice(0, hash);
+    var frag = hash === -1 ? '' : src.slice(hash);
+    return base + (base.indexOf('?') === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(liveId) + frag;
+  }
+
   var renderers = {
     img: function (m) {
       var alt = m.alt != null ? m.alt : m.caption;
@@ -126,16 +138,13 @@
     },
     live: function (m) {
       var h = parseInt(m.height, 10) || 420;
-      // Pass a unique id through so the same page can be embedded several times
-      // (each with its own data-live-id). Don't duplicate one already in src.
-      var liveSrc = /[?&]liveId=/.test(m.src)
-        ? m.src
-        : m.src + (m.src.indexOf('?') === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(m.liveId);
+      var liveId = m.liveId == null ? '' : String(m.liveId);
+      var liveSrc = withLiveId(m.src, liveId);
       return '<div class="media-card live-card">' +
         '<div class="live-wrap">' +
-        '<iframe id="' + escAttr(m.liveId) + '" class="live-frame" data-live-id="' + escAttr(m.liveId) + '"' +
+        '<iframe id="' + escAttr(liveId) + '" class="live-frame" data-live-id="' + escAttr(liveId) + '"' +
         ' src="' + escAttr(liveSrc) + '" scrolling="no" loading="eager" height="' + escAttr(h) + '"' +
-        ' title="' + escAttr(m.caption || m.liveId) + '"' +
+        ' title="' + escAttr(m.caption || liveId) + '"' +
         ' style="width:100%;height:' + h + 'px;border:0;"></iframe>' +
         '</div>' +
         (m.caption ? '<div class="caption">' + escHtml(m.caption) + '</div>' : '') +
@@ -398,13 +407,28 @@
       wrap.style.transform = 'scale(1)';
       wrap.style.height = 'auto';
       inner.style.width = '100%';
-      var scale = 1, contentH = H;
+      // Lay the content out for a candidate scale (widen, then scale down) and
+      // report how tall it then measures.
+      function measure(atScale) {
+        inner.style.width = (W / atScale) + 'px';
+        return wrap.scrollHeight;
+      }
+      var scale = 1;
       for (var k = 0; k < 8; k++) {
-        inner.style.width = (W / scale) + 'px'; // widen, then scale down
-        contentH = wrap.scrollHeight;
+        var contentH = measure(scale);
+        if (!contentH) break; // nothing laid out yet
         var ns = Math.sqrt(H / contentH * scale); // fill the panel height
         if (Math.abs(ns - scale) < 0.006) { scale = ns; break; }
         scale = ns;
+      }
+      // A width change can reflow the text by a whole line, and the loop above
+      // stops as soon as it is merely close — so check the final size against a
+      // real measurement and shrink until it actually fits, or overflow:hidden
+      // would clip the last line.
+      for (var j = 0; j < 6; j++) {
+        var fitted = measure(scale);
+        if (!fitted || fitted * scale <= H) break;
+        scale = H / fitted;
       }
       inner.style.width = (W / scale) + 'px';
       wrap.style.width = '100%';
@@ -623,8 +647,8 @@
           (e.key === ' ' || e.key === 'Enter')) return;
       if (['ArrowRight', 'PageDown'].indexOf(e.key) !== -1 || e.key === ' ') { e.preventDefault(); go(current + 1); }
       else if (['ArrowLeft', 'PageUp'].indexOf(e.key) !== -1) { e.preventDefault(); go(current - 1); }
-      else if (e.key === 'Home') go(0);
-      else if (e.key === 'End') go(total - 1);
+      else if (e.key === 'Home') { e.preventDefault(); go(0); }
+      else if (e.key === 'End') { e.preventDefault(); go(total - 1); }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
       else if (e.key === 'g' || e.key === 'G' || e.key === 'Escape') toggleOverview();
     });
