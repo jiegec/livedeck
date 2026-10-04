@@ -437,6 +437,12 @@
     }
 
     /* ---------- Right media: equal cells, fit by width & height ---------- */
+    // Load the deck with ?fit-debug in the URL and every fit prints its numbers:
+    // what the grid measured, what each caption became, and each round of the width
+    // solve. Meant for reports like "four cards on a 1920x444 screen come out wrong".
+    var DEBUG = /[?&]fit-debug/.test(location.search);
+    function r1(x) { return Math.round(x * 10) / 10; }
+    function fitLog(msg) { if (DEBUG) console.log('[livedeck fit] ' + msg); }
     function layoutMedia(panel) {
       var grid = panel.querySelector('.media-grid');
       if (!grid) return;
@@ -457,62 +463,82 @@
       var rowGap = parseFloat(gcs.rowGap) || 0;
       var cellW = (gW - (cols - 1) * colGap) / cols;
       var cellH = (gH - (rows - 1) * rowGap) / rows;
-      cards.forEach(function (card) {
+      fitLog('grid ' + gW + 'x' + gH + ' cells ' + cols + 'x' + rows + ' gap ' + colGap + '/' + rowGap +
+        ' cell ' + r1(cellW) + 'x' + r1(cellH) + ' cards ' + N);
+      cards.forEach(function (card, i) {
         var cap = card.querySelector('figcaption, .caption');
+        var tag = 'card ' + (i + 1) + '/' + N + ' ' + (card.classList.contains('live-card') ? 'live' : 'image');
         // A caption's own size depends on how wide the card ends up, and the card's
-        // size depends on how tall the caption is. Settle it, fit the card, and — only
-        // when the caption had to move — settle it again at the width it really has:
-        // the notch belongs in the last line of the final layout, not in the line the
-        // caption happened to start out with.
-        var moved = settleCaption(cap, cellH);
-        fitCard(card, cellW, cellH);
-        if (moved) {
-          settleCaption(cap, cellH);
-          fitCard(card, cellW, cellH);
+        // size depends on how tall the caption is. Settle the caption, fit the card,
+        // and go round again while the caption still has something to move: the notch
+        // belongs in the last line of the *final* layout, not in the line the caption
+        // happened to start out with. Two rounds are the usual case; the cap on the
+        // caption is what stops the rounds from chasing each other for good.
+        for (var pass = 1; pass <= 4; pass++) {
+          var moved = settleCaption(cap, cellH, tag + ' p' + pass);
+          fitCard(card, cellW, cellH, tag + ' p' + pass);
+          if (!moved) break;
         }
       });
+      fitLog('grid done');
     }
 
-    function fitCard(card, cellW, cellH) {
-      if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH);
-      else fitImageCard(card, cellW, cellH);
+    function fitCard(card, cellW, cellH, tag) {
+      if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH, tag);
+      else fitImageCard(card, cellW, cellH, tag);
     }
 
     // A caption is text and is never scaled with the media, but it may not eat the
     // card either: on a phone a few lines of body text are most of the room the
-    // image needs. It gets at most CAPTION_MAX of the cell, and only steps the font
-    // down when it would take more — no further than CAPTION_MIN_PX, below which
-    // the words stop being worth reading, so a caption that is longer still simply
-    // takes the room it needs. Returns true when either decision moved, which means
-    // the caller has to lay the card out again with the caption it now has.
+    // image needs, and on a very wide, short cell (1920x444 with four cards) a
+    // caption that keeps gaining a line as the card narrows is what the width solve
+    // below cannot satisfy — it chases the caption down and collapses the card into
+    // a column that overflows the cell. So the caption's *text* gets at most
+    // CAPTION_MAX of the cell (its padding is not text), the font steps down — no
+    // further than CAPTION_MIN_PX, below which the words stop being worth reading —
+    // and a longer caption is clipped to whole lines instead of growing. Returns
+    // true when a decision moved, which means the caller has to lay the card out
+    // again with the caption it now has.
     var CAPTION_MAX = 0.2, CAPTION_MIN_PX = 11;
-    function settleCaption(cap, cellH) {
+    function settleCaption(cap, cellH, tag) {
       if (!cap) return false;
       var changed = false;
+      // Both decisions are made from the caption's own text, so neither the size nor
+      // the clip it is under right now may colour the measurement: a clip makes the
+      // text look like it fits, and dropping it again would undo the last settle.
       var had = cap.style.getPropertyValue('--cap-size');
+      var hadMax = cap.style.getPropertyValue('--cap-max');
       cap.style.removeProperty('--cap-size');
+      cap.style.removeProperty('--cap-max');
       var cs = getComputedStyle(cap);
-      var maxH = Math.max(1, cellH * CAPTION_MAX);
-      var h = cap.offsetHeight;
+      var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      var share = Math.max(1, cellH * CAPTION_MAX); // of the cell, for the text alone
+      var textH = function () { return Math.max(0, cap.clientHeight - pad); };
+      var h = textH();
       var size = 0; // 0: the stylesheet's own size is what fits
-      if (h > maxH) {
-        // The largest size that still fits the caption's share: the height grows
-        // with the font, so halving the range a few times finds it. Only ever down
-        // to CAPTION_MIN_PX, below which a caption is not worth reading.
+      if (h > share) {
+        // The largest size whose text still fits the share: the height grows with
+        // the font, so halving the range a few times finds it.
         var lo = CAPTION_MIN_PX, hi = parseFloat(cs.fontSize) || 16;
         for (var i = 0; i < 4 && hi - lo > 0.5; i++) {
           var mid = (lo + hi) / 2;
           cap.style.setProperty('--cap-size', mid + 'px');
-          if (cap.offsetHeight <= maxH) lo = mid; else hi = mid;
+          if (textH() <= share) lo = mid; else hi = mid;
         }
         size = lo;
       }
       var want = size > 0 ? size + 'px' : '';
-      if (had !== want) {
-        if (want) cap.style.setProperty('--cap-size', want);
-        else cap.style.removeProperty('--cap-size');
-        changed = true;
-      }
+      if (want) cap.style.setProperty('--cap-size', want);
+      else cap.style.removeProperty('--cap-size');
+      if (had !== want) changed = true;
+      cs = getComputedStyle(cap); // the line height follows whichever size won
+      var line = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 16) * 1.6;
+      var border = Math.max(0, cap.offsetHeight - cap.clientHeight); // the box around the text
+      var keep = Math.max(line, Math.floor(share / line) * line); // whole lines, at least one
+      var max = textH() > keep ? (keep + pad + border) + 'px' : '';
+      if (max) cap.style.setProperty('--cap-max', max);
+      else cap.style.removeProperty('--cap-max');
+      if (hadMax !== max) changed = true;
       // The enlarge button sits in the caption's bottom-right corner, so the last
       // line is the one that has to make room for it. The notch (see the stylesheet)
       // is floated into that line rather than reserving a column for every line:
@@ -520,15 +546,15 @@
       // as one line or as much of the button as reaches into the text box (the
       // button's band less the caption's bottom padding — the stylesheet's
       // min-height, kept in step with this).
-      cs = getComputedStyle(cap); // the line height follows whichever size won
-      var line = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 16) * 1.6;
-      var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-      var content = Math.max(0, cap.clientHeight - pad); // the text's own box
-      var notch = Math.max(0, content - Math.max(line, 24)) + 'px';
+      var visible = textH(); // what the clip left of the text
+      var notch = Math.max(0, visible - Math.max(line, 24)) + 'px';
       if (cap.style.getPropertyValue('--cap-notch') !== notch) {
         cap.style.setProperty('--cap-notch', notch);
         changed = true;
       }
+      fitLog((tag || 'caption') + ': share ' + r1(share) + ' font ' + r1(size || parseFloat(cs.fontSize)) +
+        ' text ' + r1(h) + ' -> ' + r1(visible) + ' lines ' + r1(visible / line) + ' cap ' + (max || 'none') +
+        ' notch ' + notch + (changed ? ' (moved)' : ''));
       return changed;
     }
 
@@ -539,13 +565,16 @@
     // rather than leaving a pale bar beside it — which means the caption's
     // height and the media's room depend on each other. `ratio` is the media's
     // height per unit of width; returns the width the media should take.
-    function fitCardWidth(card, cellW, cellH, ratio, cap) {
+    function fitCardWidth(card, cellW, cellH, ratio, cap, tag) {
       var W = cellW; // the card's outer width: the caption wraps in W minus borders
       var m = 0, room = 0;
       for (var k = 0; k < 6; k++) {
         card.style.width = W + 'px';
         m = card.clientWidth || cellW;
         room = cellH - (cap ? cap.offsetHeight : 0);
+        if (DEBUG) fitLog('  ' + (tag || 'solve') + ' round ' + (k + 1) + ': W ' + r1(W) + ' m ' + m +
+          ' room ' + r1(room) + ' need ' + r1(m * ratio) + ' ratio ' + r1(ratio) +
+          ' caption ' + (cap ? cap.offsetHeight : 0) + (room < 1 || m * ratio <= room ? ' -> stop' : ''));
         if (room < 1 || m * ratio <= room) break;
         W += room / ratio - m; // the width whose media fills the room exactly
       }
@@ -579,7 +608,7 @@
       }, PENDING_MS);
     }
 
-    function fitImageCard(card, cellW, cellH) {
+    function fitImageCard(card, cellW, cellH, tag) {
       var img = card.querySelector('img');
       if (!img) return;
       var cap = card.querySelector('figcaption') || card.querySelector('.caption');
@@ -590,6 +619,7 @@
       // to be declared up front.
       if (!img.complete) {
         setPending(card, true);
+        fitLog((tag || 'image') + ': not loaded yet, card waits');
         return;
       }
       // Measure the image at the widest the card may get, so the ratio does not
@@ -602,12 +632,15 @@
       setPending(card, false); // settled: the card may be shown…
       if (!natW || !natH) return; // …even when it settled into nothing to fit
       var ratio = natH / natW;
-      var mediaW = fitCardWidth(card, cellW, cellH, ratio, cap);
+      fitLog((tag || 'image') + ': natural ' + r1(natW) + 'x' + r1(natH) + ' ratio ' + r1(ratio));
+      var mediaW = fitCardWidth(card, cellW, cellH, ratio, cap, tag);
       img.style.width = mediaW + 'px';
       img.style.height = (mediaW * ratio) + 'px';
+      fitLog((tag || 'image') + ': media ' + r1(mediaW) + 'x' + r1(mediaW * ratio) +
+        ' card ' + card.offsetWidth + 'x' + card.offsetHeight);
     }
 
-    function fitLiveCard(card, cellW, cellH) {
+    function fitLiveCard(card, cellW, cellH, tag) {
       var wrap = card.querySelector('.live-wrap');
       var frame = card.querySelector('.live-frame');
       var cap = card.querySelector('.caption');
@@ -619,7 +652,10 @@
       // and in the room it is given, so it is measured, not second-guessed.
       var NAT_W = parseFloat(frame.dataset.natW) || cellW;
       var natH = parseFloat(frame.dataset.natH) || parseInt(frame.getAttribute('height'), 10) || cellH;
-      var mediaW = fitCardWidth(card, cellW, cellH, natH / NAT_W, cap);
+      var known = !!(frame.dataset.natW || frame.dataset.loaded);
+      fitLog((tag || 'live') + ': embed ' + r1(NAT_W) + 'x' + r1(natH) + ' ratio ' + r1(natH / NAT_W) +
+        ' (' + (known ? 'reported or loaded' : 'guessed from the panel') + ')');
+      var mediaW = fitCardWidth(card, cellW, cellH, natH / NAT_W, cap, tag);
       // The frame keeps its own layout size — an embedded page is never reflowed
       // to fit — and is scaled inside a wrapper that takes the fitted size, so
       // the caption below it is exactly as wide as the embed.
@@ -632,7 +668,9 @@
       if (media) media.style.overflowY = 'visible';
       // Guessing is what has to be kept off the screen, so the card waits for the
       // embed's own report (or for it to finish loading) before it is shown at all.
-      setPending(card, !(frame.dataset.natW || frame.dataset.loaded));
+      setPending(card, !known);
+      fitLog((tag || 'live') + ': media ' + r1(mediaW) + 'x' + r1(mediaW * (natH / NAT_W)) +
+        ' scale ' + r1(mediaW / NAT_W * 100) / 100 + ' card ' + card.offsetWidth + 'x' + card.offsetHeight);
     }
 
     var fitRaf;
@@ -881,9 +919,13 @@
       card.style.transform = '';
       // The enlargement has room for the caption at its normal size, and no button
       // to make room for, so the caption's own fit is dropped here (zoomClosed()
-      // re-fits the card in the grid, which settles both again).
+      // re-fits the card in the grid, which settles all three again).
       var cap = card.querySelector('.caption');
-      if (cap) { cap.style.removeProperty('--cap-size'); cap.style.removeProperty('--cap-notch'); }
+      if (cap) {
+        cap.style.removeProperty('--cap-size');
+        cap.style.removeProperty('--cap-max');
+        cap.style.removeProperty('--cap-notch');
+      }
       card.setAttribute('popover', 'manual');
       card.classList.add('zoomed');
       zoomed = card;

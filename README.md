@@ -79,10 +79,13 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 Media cards are laid out in equal cells (`ceil(sqrt(n))` columns). Only the media itself is
 sized to fit the cell — the card hugs it, so the caption is exactly as wide as the media. A
 caption is text and is never scaled with the media: it keeps the page's type size and only
-steps below it when it would otherwise take more than a fifth of the card, which is what
-happens on a phone, where a few lines of body text are most of the room an image needs. A
-live embed keeps its own layout size and is scaled visually, so an embedded page is never
-reflowed to fit.
+steps below it when its text would otherwise take more than a fifth of the card, which is
+what happens on a phone, where a few lines of body text are most of the room an image needs.
+A caption that is over that share even at the smallest size is clipped to whole lines rather
+than allowed to grow: on a very wide, short cell — 1920x444 with four cards — a caption that
+gains a line as the card narrows is a card the width solve can only answer by squeezing to a
+sliver. A live embed keeps its own layout size and is scaled visually, so an embedded page is
+never reflowed to fit.
 
 Nothing has to be declared up front: an image's ratio is read from the image, an embed
 reports its own size, and a card whose media has not given the deck a size yet stays out of
@@ -90,6 +93,10 @@ sight — keeping its place in the grid — until it has. A step is therefore la
 the same frame it is switched to, and never corrected in front of the reader; the card then
 fades in. `data-height` on a frame is the one thing worth writing, and only for an embed
 that will never report (see below).
+
+Loading the page with `?fit-debug` in the URL prints every fit to the console: the grid it
+measured, what each caption became, and each round of the width solve. That is the log to
+attach to a report like "four cards on a 1920x444 screen come out wrong".
 
 Every media card carries an **enlarge button** in its bottom-right corner. It fades in when
 you point at the card (and stays visible where there is no hover). Only the caption lines it
