@@ -30,14 +30,14 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
 3. **Every card gets a cell of the same size.** Inside it the media keeps its own aspect
    ratio and, together with the caption, fills the cell as far as one of the two dimensions
    allows; the card then hugs what came out of that, so its sides are the media's sides.
-4. **The caption's height follows its content, inside a ceiling and a floor.** Its text takes
-   at most a fifth of the card's height and, whenever the content allows, at least a tenth.
-   Inside that range the deck takes the largest font that fits the text under the ceiling,
-   never stepping down past the floor (nor below a legible 11px). A caption still over the
-   ceiling is clipped to whole lines rather than allowed to grow — on a very wide, short cell
-   a caption that gains a line as the card narrows is a card the width solve can only answer
-   by squeezing to a sliver. The caption's padding is not text, so a caption is never clipped
-   away entirely.
+4. **The caption's height follows its content under a ceiling.** Its text takes at most a
+   fifth of the card's height; inside that range the deck takes the largest font that fits
+   the text under the ceiling, never below a legible 11px. Below the ceiling the height is
+   the font's own — a short caption is exactly as tall as its words, never padded out to
+   fill a share. A caption still over the ceiling is clipped to whole lines rather than
+   allowed to grow — on a very wide, short cell a caption that gains a line as the card
+   narrows is a card the width solve can only answer by squeezing to a sliver. The caption's
+   padding is not text, so a caption is never clipped away entirely.
 5. **The caption is never covered.** It sits below the media, no line of it is shortened, and
    nothing is laid over it: the enlarge button belongs to the media, in the media's own
    bottom-right corner, which is the one thing that can cover a corner of the media itself.
@@ -51,13 +51,12 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   up with, and the card's size depends on how tall the caption is. `layoutMedia()` therefore
   runs `settleCaption()` and `fitCard()` round and round (four rounds at most) until a fit
   reproduces the width its caption was settled for. Two rounds are the usual case.
-* **`settleCaption()` decides the caption from its own text**, with `--cap-size`, `--cap-max`
-  and `--cap-min` removed first: a clip makes the text look like it fits, so a decision taken
+* **`settleCaption()` decides the caption from its own text**, with `--cap-size` and
+  `--cap-max` removed first: a clip makes the text look like it fits, so a decision taken
   under one undoes itself on the next round. It binary-searches the largest font whose text
-  fits `CAPTION_MAX` of the cell (bounded below by `CAPTION_MIN` and 11px), clips to whole
-  lines through `--cap-max`, and gives a short caption `CAPTION_MIN` as a height of its own
-  through `--cap-min` — set after the text is measured, or the padding box reports the floor
-  instead of the words.
+  fits `CAPTION_MAX` of the cell, bounded below by a legible 11px, and clips to whole lines
+  through `--cap-max`. There is no floor: a caption shorter than a share of the card keeps
+  the height its words need, because padding one out leaves a gap that reads as a mistake.
 * **`fitCardWidth()` sizes the media, never the card.** The card hugs it, so the caption is
   exactly as wide as the media and no pale bar appears beside it. `room = cellH - caption`
   and the media takes `min(cellW, room / ratio)`, so it is as large as the cell allows in one

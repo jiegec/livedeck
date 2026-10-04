@@ -261,7 +261,6 @@ body {
      legible size is over that share and the caption is clipped instead of growing;
      the stylesheet's own size applies whenever they are not. */
   font-size: var(--cap-size, 16px);
-  min-height: var(--cap-min, 0);
   max-height: var(--cap-max, none);
   overflow: hidden;
   color: #4b5563;
@@ -527,7 +526,6 @@ body {
 
 .media-card.live-card.zoomed .caption {
   flex: 0 0 auto;
-  min-height: 0;
   max-height: none; /* the enlargement has room for the whole caption */
   padding-right: 16px;
   text-align: center;
