@@ -73,8 +73,9 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
 * **An embed is measured, never guessed.** A live card learns its size from the page's
   `postMessage({type: 'resize', width, height})` report, matched by `e.source` against the
   frames the deck owns (so nothing needs an id, a name or a URL parameter), or from the
-  frame's own `load`; a page that never reports is laid out in its cell. There is no declared
-  size anywhere: `data-height` was removed for exactly that reason.
+  frame's own `load`; a page that never reports is laid out in its cell. Nothing about a
+  media's size is declared anywhere — the deck measures, and sizes that do not exist yet
+  are simply not drawn.
 * **The live lightbox promotes the card in place** with the Popover API instead of moving it,
   so the iframe is never reloaded and keeps its state, input and scroll position. `Esc` and
   a press outside are handled by the deck (`popover="manual"`), and the fit is restored
