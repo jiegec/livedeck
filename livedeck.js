@@ -455,27 +455,29 @@
       });
     }
 
-    // The card is scaled to fit its cell; counter-scale the zoom button so it
-    // stays a comfortable target however small the card got.
-    function scaleZoom(card, s) {
-      var btn = card.querySelector('.media-zoom');
-      if (btn && s > 0) btn.style.transform = 'scale(' + (1 / s) + ')';
-    }
-
+    // Media are sized by layout, never by scaling the card: a caption is text,
+    // and text that is scaled with the media gets unreadable as soon as a big
+    // image or embed is scaled right down. So the card keeps its normal type
+    // and only the media gives way, taking the room the caption leaves.
     function fitImageCard(card, cellW, cellH) {
       var img = card.querySelector('img');
       if (!img) return;
-      card.style.transform = 'scale(1)';
-      card.style.transformOrigin = 'center center';
+      var cap = card.querySelector('figcaption') || card.querySelector('.caption');
+      card.style.transform = '';
+      card.style.transformOrigin = '';
       card.style.width = cellW + 'px';
       card.style.height = 'auto';
-      img.style.width = cellW + 'px'; // height follows from CSS height:auto
-      var natW = card.offsetWidth;
-      var natH = card.offsetHeight;
+      img.style.width = ''; // natural size, capped by the CSS max-width:100%
+      img.style.height = '';
+      var natW = img.offsetWidth;
+      var natH = img.offsetHeight;
       if (!natW || !natH) return;
-      var s = Math.min(cellW / natW, cellH / natH);
-      card.style.transform = 'scale(' + s + ')';
-      scaleZoom(card, s);
+      var availW = card.clientWidth || cellW; // the card's border eats into the cell
+      var availH = cellH - (cap ? cap.offsetHeight : 0);
+      if (availH < 1) return; // a caption taller than the cell leaves no room
+      var s = Math.min(availW / natW, availH / natH);
+      img.style.width = (natW * s) + 'px';
+      img.style.height = (natH * s) + 'px';
     }
 
     function fitLiveCard(card, cellW, cellH) {
@@ -486,23 +488,25 @@
       if (!wrap || !frame) return;
       var NAT_W = parseFloat(frame.dataset.natW) || Math.max(480, cellW);
       var natH = parseFloat(frame.dataset.natH) || parseInt(frame.getAttribute('height'), 10) || 480;
+      card.style.transform = '';
+      card.style.transformOrigin = '';
+      card.style.maxWidth = '';
+      card.style.width = cellW + 'px';
+      card.style.height = 'auto';
+      var availW = card.clientWidth || cellW;
+      var availH = cellH - (cap ? cap.offsetHeight : 0);
+      if (availH < 1) return;
+      var s = Math.min(availW / NAT_W, availH / natH);
+      // The frame keeps its own layout size — an embedded page is never reflowed
+      // to fit — and is scaled inside a wrapper that takes the fitted size, so
+      // the caption below it is laid out at the card's real width.
       frame.style.width = NAT_W + 'px';
       frame.style.height = natH + 'px';
       frame.style.transformOrigin = 'top left';
-      frame.style.transform = 'scale(1)';
-      wrap.style.width = NAT_W + 'px';
-      wrap.style.height = natH + 'px';
-      card.style.maxWidth = 'none';
-      card.style.transformOrigin = 'center center';
-      card.style.transform = 'scale(1)';
-      card.style.width = NAT_W + 'px';
-      card.style.height = 'auto';
-      var natW = card.offsetWidth || NAT_W;
-      var natHTotal = card.offsetHeight || (natH + (cap ? cap.offsetHeight : 0));
-      var s = Math.min(cellW / natW, cellH / natHTotal);
-      card.style.transform = 'scale(' + s + ')';
-      scaleZoom(card, s);
-      if (media) media.style.overflowY = (natHTotal * s > cellH + 4) ? 'auto' : 'visible';
+      frame.style.transform = 'scale(' + s + ')';
+      wrap.style.width = (NAT_W * s) + 'px';
+      wrap.style.height = (natH * s) + 'px';
+      if (media) media.style.overflowY = 'visible';
     }
 
     var fitRaf;
