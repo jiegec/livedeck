@@ -627,7 +627,11 @@
      * with the Popover API instead, which leaves the frame exactly where it is
      * and therefore keeps its document, its input and its JS state. A top-layer
      * element with position:fixed is laid out against the viewport, so no
-     * ancestor transform, overflow or opacity can clip or displace it. */
+     * ancestor transform, overflow or opacity can clip or displace it.
+     *
+     * The popover is 'manual': the deck closes it on Esc and on a press outside
+     * by itself. An 'auto' popover would have the UA do both on the very same
+     * keystroke and the very same press, and only one of the two may act. */
     var zoomed = null;
 
     // Runs synchronously from beforetoggle (i.e. before the popover actually
@@ -673,7 +677,7 @@
       // every size on the way out (fitLiveCard re-sets all of them).
       card.style.width = card.style.height = '';
       card.style.transform = '';
-      card.setAttribute('popover', 'auto');
+      card.setAttribute('popover', 'manual');
       card.classList.add('zoomed');
       zoomed = card;
       try {
@@ -693,6 +697,25 @@
       } catch (e) { /* fall through: clean up either way */ }
       zoomClosed(card);
     }
+    // A press outside the enlarged card closes it — and the click that it turns
+    // into is swallowed, so nothing behind the card (a nav button, say) also
+    // acts on it. This mirrors #lightbox, which is clicked away the same way.
+    var swallowClick = false;
+    on(doc, 'pointerdown', function (e) {
+      swallowClick = false;
+      if (!zoomed) return;
+      // The card itself is its own backdrop (the letterbox around the embed).
+      if (e.target !== zoomed && zoomed.contains(e.target)) return;
+      closeZoom();
+      swallowClick = true;
+    }, true);
+    on(doc, 'click', function (e) {
+      if (!swallowClick) return;
+      swallowClick = false;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+
     function addZoom(card) {
       var live = !!card.querySelector('.live-frame');
       if ((!live && !card.querySelector('img')) || card.querySelector('.media-zoom')) return;
@@ -720,8 +743,9 @@
       close.textContent = '×';
       on(close, 'click', function (e) { e.preventDefault(); e.stopPropagation(); closeZoom(); });
       card.insertBefore(close, card.firstChild);
-      // Esc and a click outside close the popover inside the UA; beforetoggle
-      // is the synchronous hook for those, toggle the safety net for the rest.
+      // Nothing else is expected to close the popover (it is 'manual'), but if
+      // something does, beforetoggle is the synchronous hook for the clean-up
+      // and toggle the safety net behind it.
       on(card, 'beforetoggle', function (e) { if (e.newState !== 'open') zoomClosed(card); });
       on(card, 'toggle', function (e) { if (e.newState !== 'open') zoomClosed(card); });
     }
@@ -764,8 +788,14 @@
 
     on(doc, 'keydown', function (e) {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      // The enlarged card owns Esc: close it here, and never act on that
+      // keystroke in any other way.
+      if (zoomed) {
+        if (e.key === 'Escape') { e.preventDefault(); closeZoom(); }
+        return;
+      }
       // Don't navigate behind a modal overlay (Esc closes the lightbox).
-      if (zoomed || lightbox.classList.contains('open') || rotateOverlay.classList.contains('show')) return;
+      if (lightbox.classList.contains('open') || rotateOverlay.classList.contains('show')) return;
       var t = e.target;
       if (isTypingTarget(t)) return;
       // Let a focused button/link/control handle Space/Enter itself.
