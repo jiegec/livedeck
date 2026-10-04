@@ -33,7 +33,7 @@ keyboard-driven, two-column deck you can click, swipe and embed live demos in.
     </div>
     <div data-media>
       <img src="diagram.svg" data-caption="A caption">
-      <iframe data-live-id="demo" src="page.html" data-height="420"
+      <iframe src="page.html" data-height="420"
               data-caption="A live, interactive page"></iframe>
     </div>
   </section>
@@ -72,7 +72,7 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 <img src="pic.png" alt="…" data-caption="Shown under the image">
 
 <!-- live iframe -->
-<iframe data-live-id="unique-id" src="page.html" data-height="420"
+<iframe src="page.html" data-height="420"
         data-caption="Shown under the frame"></iframe>
 ```
 
@@ -92,11 +92,11 @@ LiveDeck lays the frame out at its natural size before scaling it into the cell.
 <script>LiveDeck.live.autoResize();</script>
 ```
 
-The same page can be embedded several times — give each iframe a `data-live-id` and it
-becomes the frame's DOM id. The deck recognises a report by the window it came from, so
-nothing identifies the frame and your `src` is never rewritten to carry an id: every copy
-of a page shares one URL and one cache entry. (A hand-written `?liveId=…` in `src` is
-still there for the embed to read.)
+The same page can be embedded several times — every frame is measured and scaled on its
+own. An embed needs no name: the deck recognises a report by the window it came from, your
+`src` is emitted exactly as written, and every copy of a page shares one URL and one cache
+entry. (A hand-written `?liveId=…` in `src` is still there for the embed to read; it is
+what `LiveDeck.live.id()` reports, nothing the deck routes on.)
 
 `LiveDeck.live` measures the page's **own box**, so give the embedded page an explicit
 content width (e.g. `body { width: 520px }`). To measure something else, pass a custom
@@ -123,7 +123,7 @@ LiveDeck.live.autoResize({
         content: '<p>Inline HTML</p>',
         media: [
           { type: 'img', src: 'pic.png', caption: 'An image' },
-          { type: 'live', src: 'page.html', liveId: 'demo', height: 420, caption: 'A demo' }
+          { type: 'live', src: 'page.html', height: 420, caption: 'A demo' }
         ]
       }
     ]

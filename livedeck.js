@@ -126,18 +126,15 @@
     },
     live: function (m) {
       var h = parseInt(m.height, 10) || 420;
-      var liveId = m.liveId == null ? '' : String(m.liveId);
-      // The src is emitted exactly as the author wrote it — the embed is matched
-      // by the card it sits in, so no id has to travel with it. The id is only
-      // used to give the frame a DOM handle, hence the empty-id fallback.
-      var ident = liveId
-        ? ' id="' + escAttr(liveId) + '" data-live-id="' + escAttr(liveId) + '"'
-        : '';
+      // The src is emitted exactly as the author wrote it. An embed carries no
+      // identifier at all: the deck tells reports apart by the window they came
+      // from, so nothing has to name it (a slide has data-index, its media cards
+      // are .media-card, if you need to target one from CSS).
       return '<div class="media-card live-card">' +
         '<div class="live-wrap">' +
-        '<iframe' + ident + ' class="live-frame"' +
+        '<iframe class="live-frame"' +
         ' src="' + escAttr(m.src) + '" scrolling="no" loading="eager" height="' + escAttr(h) + '"' +
-        ' title="' + escAttr(m.caption || liveId) + '"' +
+        ' title="' + escAttr(m.caption || '') + '"' +
         ' style="width:100%;height:' + h + 'px;border:0;"></iframe>' +
         '</div>' +
         (m.caption ? '<div class="caption">' + escHtml(m.caption) + '</div>' : '') +
@@ -177,7 +174,6 @@
           return {
             type: 'live',
             src: el.getAttribute('src') || '',
-            liveId: el.getAttribute('data-live-id') || el.id || '',
             height: parseInt(el.getAttribute('data-height'), 10) || 420,
             caption: caption,
           };
@@ -210,7 +206,6 @@
           type: m.type || 'img',
           src: m.src || '',
           alt: m.alt != null ? m.alt : null,
-          liveId: m.liveId || m.id || '',
           height: m.height || 420,
           caption: m.caption || '',
         };

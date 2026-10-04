@@ -91,9 +91,9 @@
     <section class="slide-source" data-section="Step 3" data-title="Embed a live page">
       <div data-content>
         <p>Any page can be embedded with an <code>&lt;iframe&gt;</code> — a simulator, a demo, a
-          widget. Give it a unique <code>data-live-id</code>:</p>
+          widget. It needs no name, just a height:</p>
         <div class="code-block">
-          &lt;iframe data-live-id="and-gate" src="live/and-gate.html"
+          &lt;iframe src="live/and-gate.html"
                   data-height="420" data-caption="A live page"&gt;&lt;/iframe&gt;
         </div>
         <p>For auto-sizing, add one line to the embedded page:</p>
@@ -103,7 +103,7 @@
         </div>
       </div>
       <div data-media>
-        <iframe data-live-id="and-gate" src="live/and-gate.html" data-height="420"
+        <iframe src="live/and-gate.html" data-height="420"
           data-caption="🖱️ A real, clickable page embedded in the deck"></iframe>
       </div>
     </section>
@@ -114,17 +114,16 @@
         <div class="code-block">
           &lt;div data-media&gt;
             &lt;img src="assets/and-gate.svg" alt="AND gate" data-caption="Image"&gt;
-            &lt;iframe data-live-id="and-gate-2" src="live/and-gate.html"
-                    data-height="420"&gt;&lt;/iframe&gt;
+            &lt;iframe src="live/and-gate.html" data-height="420"&gt;&lt;/iframe&gt;
           &lt;/div&gt;
         </div>
-        <p class="hint">The same page can be embedded many times — just use different
-          <code>data-live-id</code> values.
+        <p class="hint">The same page can be embedded many times: each frame reports its own
+          size, and the deck tells them apart by window, so no ids are needed.
         </p>
       </div>
       <div data-media>
         <img src="assets/and-gate.svg" alt="AND gate" data-caption="An image">
-        <iframe data-live-id="and-gate-2" src="live/and-gate.html" data-height="420"
+        <iframe src="live/and-gate.html" data-height="420"
           data-caption="The same page, embedded a second time"></iframe>
       </div>
     </section>
