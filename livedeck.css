@@ -212,7 +212,6 @@ body {
   display: block;
   max-width: 100%;
   height: auto;
-  margin: 0 auto; /* the card spans the cell; the image sits centred in it */
   background: #fff;
 }
 

@@ -455,29 +455,49 @@
       });
     }
 
-    // Media are sized by layout, never by scaling the card: a caption is text,
-    // and text that is scaled with the media gets unreadable as soon as a big
-    // image or embed is scaled right down. So the card keeps its normal type
-    // and only the media gives way, taking the room the caption leaves.
+    // Fit a card around its media. Media are sized by layout, never by scaling
+    // the card: a caption is text, and text that is scaled with the media turns
+    // unreadable as soon as a big image or embed is scaled right down. The card
+    // is exactly as wide as the media instead, so the caption hugs the media
+    // rather than leaving a pale bar beside it — which means the caption's
+    // height and the media's room depend on each other. `ratio` is the media's
+    // height per unit of width; returns the width the media should take.
+    function fitCardWidth(card, cellW, cellH, ratio, cap) {
+      var W = cellW; // the card's outer width: the caption wraps in W minus borders
+      var m = 0, room = 0;
+      for (var k = 0; k < 6; k++) {
+        card.style.width = W + 'px';
+        m = card.clientWidth || cellW;
+        room = cellH - (cap ? cap.offsetHeight : 0);
+        if (room < 1 || m * ratio <= room) break;
+        W += room / ratio - m; // the width whose media fills the room exactly
+      }
+      // A caption changes height only when it gains a line, so this settles in a
+      // round or two. The clamp only bites for a caption that keeps growing as
+      // the card narrows: the media then takes no more than the room measured.
+      // room < 1 means the caption alone is taller than the cell — the media
+      // stays at the width it had rather than collapsing to nothing.
+      var mediaW = room > 1 ? Math.max(1, Math.min(m, room / ratio)) : m;
+      card.style.width = (W + mediaW - m) + 'px';
+      return mediaW;
+    }
+
     function fitImageCard(card, cellW, cellH) {
       var img = card.querySelector('img');
       if (!img) return;
       var cap = card.querySelector('figcaption') || card.querySelector('.caption');
-      card.style.transform = '';
-      card.style.transformOrigin = '';
+      // Measure the image at the widest the card may get, so the ratio does not
+      // depend on the width being solved for.
       card.style.width = cellW + 'px';
-      card.style.height = 'auto';
       img.style.width = ''; // natural size, capped by the CSS max-width:100%
       img.style.height = '';
       var natW = img.offsetWidth;
       var natH = img.offsetHeight;
       if (!natW || !natH) return;
-      var availW = card.clientWidth || cellW; // the card's border eats into the cell
-      var availH = cellH - (cap ? cap.offsetHeight : 0);
-      if (availH < 1) return; // a caption taller than the cell leaves no room
-      var s = Math.min(availW / natW, availH / natH);
-      img.style.width = (natW * s) + 'px';
-      img.style.height = (natH * s) + 'px';
+      var ratio = natH / natW;
+      var mediaW = fitCardWidth(card, cellW, cellH, ratio, cap);
+      img.style.width = mediaW + 'px';
+      img.style.height = (mediaW * ratio) + 'px';
     }
 
     function fitLiveCard(card, cellW, cellH) {
@@ -488,24 +508,16 @@
       if (!wrap || !frame) return;
       var NAT_W = parseFloat(frame.dataset.natW) || Math.max(480, cellW);
       var natH = parseFloat(frame.dataset.natH) || parseInt(frame.getAttribute('height'), 10) || 480;
-      card.style.transform = '';
-      card.style.transformOrigin = '';
-      card.style.maxWidth = '';
-      card.style.width = cellW + 'px';
-      card.style.height = 'auto';
-      var availW = card.clientWidth || cellW;
-      var availH = cellH - (cap ? cap.offsetHeight : 0);
-      if (availH < 1) return;
-      var s = Math.min(availW / NAT_W, availH / natH);
+      var mediaW = fitCardWidth(card, cellW, cellH, natH / NAT_W, cap);
       // The frame keeps its own layout size — an embedded page is never reflowed
       // to fit — and is scaled inside a wrapper that takes the fitted size, so
-      // the caption below it is laid out at the card's real width.
+      // the caption below it is exactly as wide as the embed.
       frame.style.width = NAT_W + 'px';
       frame.style.height = natH + 'px';
       frame.style.transformOrigin = 'top left';
-      frame.style.transform = 'scale(' + s + ')';
-      wrap.style.width = (NAT_W * s) + 'px';
-      wrap.style.height = (natH * s) + 'px';
+      frame.style.transform = 'scale(' + (mediaW / NAT_W) + ')';
+      wrap.style.width = mediaW + 'px';
+      wrap.style.height = (mediaW * (natH / NAT_W)) + 'px';
       if (media) media.style.overflowY = 'visible';
     }
 

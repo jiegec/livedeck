@@ -77,9 +77,9 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 ```
 
 Media cards are laid out in equal cells (`ceil(sqrt(n))` columns). Only the media itself is
-sized to fit the cell — it takes the room its caption leaves, and the caption keeps the
-page's normal type size however far the media has to shrink. A live embed keeps its own
-layout size and is scaled visually, so an embedded page is never reflowed to fit.
+sized to fit the cell — the card hugs it, so the caption is exactly as wide as the media and
+keeps the page's normal type size however far the media has to shrink. A live embed keeps
+its own layout size and is scaled visually, so an embedded page is never reflowed to fit.
 
 Every media card carries an **enlarge button** in its bottom-right corner. It fades in when
 you point at the card (and stays visible where there is no hover). An image opens the
