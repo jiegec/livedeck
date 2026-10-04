@@ -550,9 +550,10 @@
         // settle the caption, fit the card, and go round again until a fit reproduces
         // the width its caption was settled for. Two rounds are the usual case; the
         // cap on the caption is what stops the rounds from chasing each other.
+        var ceiling = captionCeiling(card, cellW, cellH);
         var lastW = -1;
         for (var pass = 1; pass <= 6; pass++) {
-          settleCaption(cap, cellH, tag + ' p' + pass);
+          settleCaption(cap, cellH, ceiling, tag + ' p' + pass);
           var w = fitCard(card, cellW, cellH, tag + ' p' + pass);
           if (w === lastW) break;
           lastW = w;
@@ -569,20 +570,32 @@
       return card.offsetWidth;
     }
 
+    // How tall a caption may get. A card whose media is pinned by the cell's *height* —
+    // the media at the cell's full width would not fit — can only spare CAPTION_MAX of
+    // it, which is what keeps the media its room. A card pinned by the *width* has
+    // whatever the media does not use, so the caption keeps the size its words want and
+    // the media keeps the size its ratio wants: neither pays for the other.
+    function captionCeiling(card, cellW, cellH) {
+      var share = cellH * CAPTION_MAX;
+      var ratio = mediaRatio(card);
+      if (!(ratio > 0)) return share; // ratio unknown yet: assume the tight case
+      var full = cellW * ratio; // the media at the cell's full width
+      return full > cellH - share ? share : Math.max(share, cellH - full);
+    }
+
     // A caption is text and is never scaled with the media, but it may not eat the
     // card either: on a phone a few lines of body text are most of the room the
     // image needs, and on a very wide, short cell (1920x444 with four cards) a
     // caption that keeps gaining a line as the card narrows is what the width solve
     // below cannot satisfy — it chases the caption down and collapses the card into
     // a column that overflows the cell. So the caption's *text* gets at most
-    // CAPTION_MAX of the cell and the font steps down until it fits, with no floor
-    // under it: a caption too small to read is still better than one that is cut off.
-    // The text is never clipped — the caption's own padding is what gives way, capped
-    // at CAPTION_PAD of the cell, so the box the card is laid out around stays inside
-    // a third of it whatever the theme's padding is. Returns true when a decision
-    // moved, which the fit log reports.
-    var CAPTION_MAX = 0.2, CAPTION_PAD = 0.1;
-    function settleCaption(cap, cellH, tag) {
+    // the ceiling captionCeiling() worked out (see there) and the font steps down until
+    // it fits, with no floor under it: a caption too small to read is still better than
+    // one that is cut off. The text is never clipped — the caption's own padding gives
+    // way first — and the whole box is what the card is laid out around. Returns true
+    // when a decision moved, which the fit log reports.
+    var CAPTION_MAX = 0.2;
+    function settleCaption(cap, cellH, ceiling, tag) {
       if (!cap) return false;
       var changed = false;
       // Everything is decided from the caption's own text, so neither the size nor the
@@ -595,10 +608,14 @@
       var cs = getComputedStyle(cap);
       var padTop = parseFloat(cs.paddingTop) || 0, padBottom = parseFloat(cs.paddingBottom) || 0;
       var padLeft = parseFloat(cs.paddingLeft) || 0, padRight = parseFloat(cs.paddingRight) || 0;
-      // The padding is sacrificed only as far as it has to be: a cell shorter than the
-      // theme's padding would otherwise be dominated by it, and the caption's text would
-      // have to shrink to nothing to make room for furniture.
-      var scale = Math.min(1, (cellH * CAPTION_PAD) / Math.max(1, padTop + padBottom));
+      // The padding gives way first, and only as far as it has to: it takes whatever the
+      // ceiling has left after the text at the size the stylesheet gives it, so a caption
+      // that fits keeps its font and a cell too short for furniture is not dominated by it.
+      // What is left of the ceiling is what the text may take, so the caption's whole box —
+      // text and padding — stays inside it, which is the number the card is laid out around.
+      var themePad = padTop + padBottom;
+      var natural = Math.max(0, cap.clientHeight - themePad); // text at the stylesheet's size
+      var scale = Math.min(1, Math.max(0, ceiling - natural) / Math.max(1, themePad));
       var r2 = function (x) { return Math.round(x * 100) / 100; };
       var padStyle = scale < 1
         ? r2(padTop * scale) + 'px ' + r2(padRight * scale) + 'px ' +
@@ -608,7 +625,7 @@
       if (hadPad !== padStyle) changed = true;
       cs = getComputedStyle(cap);
       var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-      var share = Math.max(1, cellH * CAPTION_MAX); // of the cell, for the text alone
+      var share = Math.max(1, ceiling - pad); // for the text; the padding is inside too
       var textH = function () { return Math.max(0, cap.clientHeight - pad); };
       var h = textH();
       var size = 0; // 0: the stylesheet's own size is what fits

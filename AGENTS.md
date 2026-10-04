@@ -30,14 +30,15 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
 3. **Every card gets a cell of the same size.** Inside it the media keeps its own aspect
    ratio and, together with the caption, fills the cell as far as one of the two dimensions
    allows; the card then hugs what came out of that, so its sides are the media's sides.
-4. **The caption's height follows its content under a ceiling.** Its text takes at most a
-   fifth of the card's height, and the font steps down until it fits — with no floor under
-   it, so the ceiling always holds. Below the ceiling the height is the font's own: a short
-   caption is exactly as tall as its words, never padded out to fill a share. The text is
-   never clipped: the caption's own padding is what gives way, capped at a tenth of the cell,
-   so the box the card is laid out around stays inside a third of it whatever the theme's
-   padding is. (A cell shorter than the theme's padding used to be dominated by it, and the
-   words had to shrink to nothing to make room for furniture.)
+4. **The caption's height follows its content, under a ceiling the media sets.** A card the
+   cell's *height* pins — the media at the cell's full width would not fit — may spare the
+   caption only a fifth of the cell, which is what keeps the media its room. A card the
+   *width* pins has whatever the media does not use: the caption keeps the size its words
+   want and the media keeps the size its ratio wants, so neither pays for the other. Under
+   the ceiling the height is the font's own — a short caption is exactly as tall as its
+   words, never padded out to fill a share. The text is never clipped: the caption's own
+   padding gives way first, and the font steps down into what is left, with no floor under
+   it, so the ceiling always holds and the caption's whole box stays inside it.
 5. **The caption is never covered.** It sits below the media, no line of it is shortened, and
    nothing is laid over it: the enlarge button belongs to the media, in the media's own
    bottom-right corner, which is the one thing that can cover a corner of the media itself.
@@ -53,13 +54,18 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   reproduces the width its caption was settled for. Two rounds are the usual case; the bound
   is a backstop, and because the caption's box is bounded by its share the layout stays inside
   the cell even where the rounds do not fully settle.
+* **`captionCeiling()` says how tall a caption may be.** It compares the cell's width times
+  the media's ratio — the height the media would want at full width — with the cell, less
+  `CAPTION_MAX` of it: if the media wants more than that, the cell's height is the binding
+  constraint and the caption gets `CAPTION_MAX`; otherwise the cell's width is, and the
+  caption gets everything the media leaves. The ratio's unknown case takes the tight one.
 * **`settleCaption()` decides the caption from its own text**, with `--cap-size` and the
   padding it set last time reset first: what the last settle left must not colour the
-  measurement. It caps the padding at `CAPTION_PAD` of the cell — scaling the theme's, all
-  four sides together, and only as far as it has to — and then binary-searches the largest
-  font whose text fits `CAPTION_MAX` of the cell, with no floor under the search, so the
-  ceiling always holds. A caption shorter than the ceiling keeps the height its words need:
-  padding one out to fill a share leaves a gap that reads as a mistake.
+  measurement. It gives the padding whatever the ceiling has left after the text at the
+  stylesheet's size — scaling the theme's on all four sides, and only as far as it has to —
+  and then binary-searches the largest font that fits what remains, with no floor under the
+  search, so the ceiling always holds. A caption shorter than the ceiling keeps the height
+  its words need: padding one out to fill a share leaves a gap that reads as a mistake.
 * **`fitCardWidth()` sizes the media, never the card.** The card hugs it, so the caption is
   exactly as wide as the media and no pale bar appears beside it. `room = cellH - caption`
   and the media takes `min(cellW, room / ratio)`, so it is as large as the cell allows in one
