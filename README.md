@@ -92,11 +92,11 @@ LiveDeck lays the frame out at its natural size before scaling it into the cell.
 <script>LiveDeck.live.autoResize();</script>
 ```
 
-The same page can be embedded several times — give each iframe a different
-`data-live-id`. The deck identifies a report by the window it came from, so it never
-rewrites your `src` to tell the embed which instance it is; the id is passed as the
-frame's `name`, which the embed can read as `window.name`. (A hand-written
-`?liveId=…` in `src` is still honoured, and still wins.)
+The same page can be embedded several times — give each iframe a `data-live-id` and it
+becomes the frame's DOM id. The deck recognises a report by the window it came from, so
+nothing identifies the frame and your `src` is never rewritten to carry an id: every copy
+of a page shares one URL and one cache entry. (A hand-written `?liveId=…` in `src` is
+still there for the embed to read.)
 
 `LiveDeck.live` measures the page's **own box**, so give the embedded page an explicit
 content width (e.g. `body { width: 520px }`). To measure something else, pass a custom

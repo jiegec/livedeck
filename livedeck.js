@@ -127,12 +127,11 @@
     live: function (m) {
       var h = parseInt(m.height, 10) || 420;
       var liveId = m.liveId == null ? '' : String(m.liveId);
-      // The src is emitted exactly as the author wrote it: the deck hands the id
-      // to the embed through the frame's name (window.name, readable by the child
-      // at any origin) instead of rewriting the URL. A frame without an id is
-      // fine too — the deck still ties its report to the card by window.
+      // The src is emitted exactly as the author wrote it — the embed is matched
+      // by the card it sits in, so no id has to travel with it. The id is only
+      // used to give the frame a DOM handle, hence the empty-id fallback.
       var ident = liveId
-        ? ' id="' + escAttr(liveId) + '" name="' + escAttr(liveId) + '" data-live-id="' + escAttr(liveId) + '"'
+        ? ' id="' + escAttr(liveId) + '" data-live-id="' + escAttr(liveId) + '"'
         : '';
       return '<div class="media-card live-card">' +
         '<div class="live-wrap">' +
@@ -549,25 +548,22 @@
     }
 
     /* ---------- live iframe auto height ---------- */
-    // Which card did this message come from? The sender's window is the only
-    // thing an embed cannot get wrong, so match on that alone whenever it is
-    // available — an embed never has to learn its own id, and the deck never
-    // has to put one in the URL. The id in the payload stays supported as a
-    // hint for a sender we cannot tie to a window.
-    function liveFrameFrom(source, id) {
+    // Which card did this message come from? The sending window is the only
+    // thing an embed cannot get wrong, so it is the only thing we match on: no
+    // id has to be handed to the embed, in the URL or anywhere else, and an id
+    // in the payload can never point at a card this deck doesn't own.
+    function liveFrameFrom(source) {
+      if (!source) return null;
       var frames = deck.querySelectorAll('iframe.live-frame');
-      var byId = null;
       for (var i = 0; i < frames.length; i++) {
-        if (source && frames[i].contentWindow === source) return frames[i];
-        if (!byId && id && frames[i].id === id) byId = frames[i];
+        if (frames[i].contentWindow === source) return frames[i];
       }
-      // Never trust an id that came with a window we don't own.
-      return source ? null : byId;
+      return null;
     }
 
     on(window, 'message', function (e) {
       if (!e.data || e.data.type !== 'resize' || !e.data.height) return;
-      var frame = liveFrameFrom(e.source, e.data.id);
+      var frame = liveFrameFrom(e.source);
       if (!frame) return;
       if (e.data.width) { frame.dataset.natW = e.data.width; frame.style.width = e.data.width + 'px'; }
       frame.dataset.natH = e.data.height;

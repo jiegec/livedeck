@@ -5,7 +5,7 @@
  *
  *  Contract with LiveDeck: postMessage({ type: 'resize', id, width, height }).
  *  The deck ties a report to the card it came from by looking at the sending
- *  window, so `id` is only a hint and the deck never has to put one in the URL.
+ *  window, so `id` is only informational — nothing has to identify the frame.
  *  MIT licensed.
  */
 (function (root, factory) {
@@ -20,17 +20,16 @@
 
   var VERSION = '0.1.0';
 
-  /* Resolve the id: ?liveId=... wins, then the frame's name — the deck names
-   * every embed from its data-live-id, so the id can reach this page without
-   * the URL being rewritten — then an explicit fallback, then the file name
-   * (so the page also works when opened alone). */
+  /* Resolve the id, for the payload and for callers of LiveDeck.live.id():
+   * ?liveId=... wins, then an explicit fallback, then the file name (so the
+   * page also works when opened alone). The deck does not need it to route a
+   * report, so a page that never resolves one still auto-sizes. */
   function id(fallback) {
     var q = null;
     try {
       q = new URLSearchParams(location.search).get('liveId');
     } catch (e) { /* very old browsers */ }
     if (q) return q;
-    if (window.parent !== window && window.name) return window.name;
     if (fallback) return fallback;
     return (location.pathname.split('/').pop() || 'live').replace(/\.html$/, '');
   }
