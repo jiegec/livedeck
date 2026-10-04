@@ -116,16 +116,30 @@
    * Each renderer is (media, T) => HTML string. Override or add your own
    * via `options.renderers`.
    * ================================================================== */
+  // Does a URL's query (without the "?") already carry a liveId parameter?
+  // URLSearchParams reads the parameter names, so a "liveId=…" that merely sits
+  // inside another value — or in the #fragment — doesn't count.
+  function hasLiveId(query) {
+    if (!query) return false;
+    if (typeof URLSearchParams === 'function') return new URLSearchParams(query).has('liveId');
+    return /(^|&)liveId(=|&|$)/.test(query); // very old browsers
+  }
+
   // Pass the embed's unique id through the URL so the same page can be embedded
-  // several times (each with its own data-live-id). The query goes before any
-  // #fragment, otherwise the embed would see an empty location.search.
+  // several times (each with its own data-live-id). Only the query is edited and
+  // it stays before the #fragment, which is also where it has to sit for the
+  // embed to see it in location.search. new URL() is deliberately not used here:
+  // it needs a base and would rewrite the author's (relative) src into an
+  // absolute, normalised URL.
   function withLiveId(src, liveId) {
     src = String(src == null ? '' : src);
-    if (!src || !liveId || /[?&]liveId=/.test(src)) return src;
-    var hash = src.indexOf('#');
+    if (!src || !liveId) return src;
+    var hash = src.indexOf('#'); // a fragment starts at the first "#"
     var base = hash === -1 ? src : src.slice(0, hash);
     var frag = hash === -1 ? '' : src.slice(hash);
-    return base + (base.indexOf('?') === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(liveId) + frag;
+    var mark = base.indexOf('?');
+    if (hasLiveId(mark === -1 ? '' : base.slice(mark + 1))) return src;
+    return base + (mark === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(liveId) + frag;
   }
 
   var renderers = {
