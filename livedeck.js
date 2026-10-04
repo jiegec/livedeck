@@ -575,23 +575,37 @@
     // caption that keeps gaining a line as the card narrows is what the width solve
     // below cannot satisfy — it chases the caption down and collapses the card into
     // a column that overflows the cell. So the caption's *text* gets at most
-    // CAPTION_MAX of the cell (its padding is not text) and the font steps down until
-    // it fits, with no floor under it: a caption too small to read is still better
-    // than one that hangs out of the card. A caption that is over the ceiling all the
-    // same is clipped to whole lines rather than allowed to grow. Returns true when a
-    // decision moved, which the fit log reports.
-    var CAPTION_MAX = 0.2;
+    // CAPTION_MAX of the cell and the font steps down until it fits, with no floor
+    // under it: a caption too small to read is still better than one that is cut off.
+    // The text is never clipped — the caption's own padding is what gives way, capped
+    // at CAPTION_PAD of the cell, so the box the card is laid out around stays inside
+    // a third of it whatever the theme's padding is. Returns true when a decision
+    // moved, which the fit log reports.
+    var CAPTION_MAX = 0.2, CAPTION_PAD = 0.1;
     function settleCaption(cap, cellH, tag) {
       if (!cap) return false;
       var changed = false;
-      // Both decisions are made from the caption's own text, so neither the size nor
-      // the clip it is under right now may colour the measurement: a clip makes the
-      // text look like it fits, and dropping it again would undo the last settle.
+      // Everything is decided from the caption's own text, so neither the size nor the
+      // padding the last settle left may colour the measurement.
       var had = cap.style.getPropertyValue('--cap-size');
-      var hadMax = cap.style.getPropertyValue('--cap-max');
+      var hadPad = cap.style.padding;
       cap.style.removeProperty('--cap-size');
-      cap.style.removeProperty('--cap-max');
+      cap.style.padding = '';
       var cs = getComputedStyle(cap);
+      var padTop = parseFloat(cs.paddingTop) || 0, padBottom = parseFloat(cs.paddingBottom) || 0;
+      var padLeft = parseFloat(cs.paddingLeft) || 0, padRight = parseFloat(cs.paddingRight) || 0;
+      // The padding is sacrificed only as far as it has to be: a cell shorter than the
+      // theme's padding would otherwise be dominated by it, and the caption's text would
+      // have to shrink to nothing to make room for furniture.
+      var scale = Math.min(1, (cellH * CAPTION_PAD) / Math.max(1, padTop + padBottom));
+      var r2 = function (x) { return Math.round(x * 100) / 100; };
+      var padStyle = scale < 1
+        ? r2(padTop * scale) + 'px ' + r2(padRight * scale) + 'px ' +
+          r2(padBottom * scale) + 'px ' + r2(padLeft * scale) + 'px'
+        : '';
+      if (padStyle) cap.style.padding = padStyle;
+      if (hadPad !== padStyle) changed = true;
+      cs = getComputedStyle(cap);
       var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
       var share = Math.max(1, cellH * CAPTION_MAX); // of the cell, for the text alone
       var textH = function () { return Math.max(0, cap.clientHeight - pad); };
@@ -599,9 +613,8 @@
       var size = 0; // 0: the stylesheet's own size is what fits
       if (h > share) {
         // The largest size whose text still fits the share, found by halving the range.
-        // There is no floor under it: a caption too small to read is still better than
-        // one that hangs out of the card, and the height is otherwise left to the font,
-        // so a short caption is exactly as tall as its words.
+        // There is no floor under it: the text is never clipped, so a caption that will
+        // not fit any other way is allowed to become unreadably small.
         var lo = 0.5, hi = parseFloat(cs.fontSize) || 16;
         for (var i = 0; i < 6 && hi - lo > 0.5; i++) {
           var mid = (lo + hi) / 2;
@@ -614,18 +627,9 @@
       if (want) cap.style.setProperty('--cap-size', want);
       else cap.style.removeProperty('--cap-size');
       if (had !== want) changed = true;
-      cs = getComputedStyle(cap); // the line height follows whichever size won
-      var line = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 16) * 1.6;
-      var border = Math.max(0, cap.offsetHeight - cap.clientHeight); // the box around the text
-      var keep = Math.max(line, Math.floor(share / line) * line); // whole lines, at least one
-      var max = textH() > keep ? (keep + pad + border) + 'px' : '';
-      if (max) cap.style.setProperty('--cap-max', max);
-      else cap.style.removeProperty('--cap-max');
-      if (hadMax !== max) changed = true;
-      var visible = textH(); // what the clip left of the text
       fitLog((tag || 'caption') + ': share ' + r1(share) + ' font ' +
-        r1(size || parseFloat(cs.fontSize)) + ' text ' + r1(h) + ' -> ' + r1(visible) +
-        ' lines ' + r1(visible / line) + ' cap ' + (max || 'none') + (changed ? ' (moved)' : ''));
+        r1(size || parseFloat(cs.fontSize)) + ' text ' + r1(h) + ' -> ' + r1(textH()) +
+        ' padding ' + (padStyle || 'theme') + (changed ? ' (moved)' : ''));
       return changed;
     }
 
@@ -994,7 +998,7 @@
       var cap = card.querySelector('.caption');
       if (cap) {
         cap.style.removeProperty('--cap-size');
-        cap.style.removeProperty('--cap-max');
+        cap.style.padding = '';
       }
       card.setAttribute('popover', 'manual');
       card.classList.add('zoomed');

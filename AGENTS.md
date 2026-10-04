@@ -33,11 +33,11 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
 4. **The caption's height follows its content under a ceiling.** Its text takes at most a
    fifth of the card's height, and the font steps down until it fits — with no floor under
    it, so the ceiling always holds. Below the ceiling the height is the font's own: a short
-   caption is exactly as tall as its words, never padded out to fill a share. A caption over
-   the ceiling all the same is clipped to whole lines rather than allowed to grow — on a
-   very wide, short cell a caption that gains a line as the card narrows is a card the width
-   solve can only answer by squeezing to a sliver. The caption's padding is not text, so a
-   caption is never clipped away entirely.
+   caption is exactly as tall as its words, never padded out to fill a share. The text is
+   never clipped: the caption's own padding is what gives way, capped at a tenth of the cell,
+   so the box the card is laid out around stays inside a third of it whatever the theme's
+   padding is. (A cell shorter than the theme's padding used to be dominated by it, and the
+   words had to shrink to nothing to make room for furniture.)
 5. **The caption is never covered.** It sits below the media, no line of it is shortened, and
    nothing is laid over it: the enlarge button belongs to the media, in the media's own
    bottom-right corner, which is the one thing that can cover a corner of the media itself.
@@ -50,16 +50,16 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
 * **One settle/fit loop per card.** A caption's own size depends on the width its card ends
   up with, and the card's size depends on how tall the caption is. `layoutMedia()` therefore
   runs `settleCaption()` and `fitCard()` round and round (six rounds at most) until a fit
-  reproduces the width its caption was settled for. Two rounds are the usual case, and a cell
-  too short for the caption's own padding is the one place the loop cannot settle: the panel
-  clips the overflow there, exactly as the caption's own clip would.
-* **`settleCaption()` decides the caption from its own text**, with `--cap-size` and
-  `--cap-max` removed first: a clip makes the text look like it fits, so a decision taken
-  under one undoes itself on the next round. It binary-searches the largest font whose text
-  fits `CAPTION_MAX` of the cell — with no floor under the search, so the ceiling always
-  holds — and clips to whole lines through `--cap-max` as a last resort. A caption shorter
-  than that keeps the height its words need: padding one out to fill a share leaves a gap
-  that reads as a mistake.
+  reproduces the width its caption was settled for. Two rounds are the usual case; the bound
+  is a backstop, and because the caption's box is bounded by its share the layout stays inside
+  the cell even where the rounds do not fully settle.
+* **`settleCaption()` decides the caption from its own text**, with `--cap-size` and the
+  padding it set last time reset first: what the last settle left must not colour the
+  measurement. It caps the padding at `CAPTION_PAD` of the cell — scaling the theme's, all
+  four sides together, and only as far as it has to — and then binary-searches the largest
+  font whose text fits `CAPTION_MAX` of the cell, with no floor under the search, so the
+  ceiling always holds. A caption shorter than the ceiling keeps the height its words need:
+  padding one out to fill a share leaves a gap that reads as a mistake.
 * **`fitCardWidth()` sizes the media, never the card.** The card hugs it, so the caption is
   exactly as wide as the media and no pale bar appears beside it. `room = cellH - caption`
   and the media takes `min(cellW, room / ratio)`, so it is as large as the cell allows in one
