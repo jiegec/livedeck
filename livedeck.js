@@ -132,10 +132,9 @@
         '</figure>';
     },
     live: function (m) {
-      // No height is invented for an embed that declares none: the deck waits for
-      // the embed to report its real size instead, and only data-height (below)
-      // can stand in for a page that is never going to report one.
-      var h = parseInt(m.height, 10) || 0;
+      // No size is invented for an embed: the deck measures it at runtime, from the
+      // report its page sends (livedeck-live.js) or, for a page that never reports,
+      // from the cell it is given.
       // The src is emitted exactly as the author wrote it. An embed carries no
       // identifier at all: the deck tells reports apart by the window they came
       // from, so nothing has to name it (a slide has data-index, its media cards
@@ -144,9 +143,8 @@
         '<div class="live-wrap">' +
         '<iframe class="live-frame"' +
         ' src="' + escAttr(m.src) + '" scrolling="no" loading="eager"' +
-        (h > 0 ? ' height="' + h + '"' : '') +
         ' title="' + escAttr(m.caption || '') + '"' +
-        ' style="width:100%;' + (h > 0 ? 'height:' + h + 'px;' : '') + 'border:0;"></iframe>' +
+        ' style="width:100%;border:0;"></iframe>' +
         '</div>' +
         (m.caption ? '<div class="caption">' + escHtml(m.caption) + '</div>' : '') +
         '</div>';
@@ -185,7 +183,6 @@
           return {
             type: 'live',
             src: el.getAttribute('src') || '',
-            height: parseInt(el.getAttribute('data-height'), 10) || 0,
             caption: caption,
           };
         }
@@ -217,10 +214,6 @@
           type: m.type || 'img',
           src: m.src || '',
           alt: m.alt != null ? m.alt : null,
-          // A declared height is a hint for an embed that cannot report its own
-          // size; there is no default, because a made-up size is a guess the deck
-          // would have to correct (it measures the media at runtime instead).
-          height: m.height || 0,
           caption: m.caption || '',
         };
       }),
@@ -729,7 +722,7 @@
       // the only honest guess: an embed lays itself out at the width it is given
       // and in the room it is given, so it is measured, not second-guessed.
       var NAT_W = parseFloat(frame.dataset.natW) || cellW;
-      var natH = parseFloat(frame.dataset.natH) || parseInt(frame.getAttribute('height'), 10) || cellH;
+      var natH = parseFloat(frame.dataset.natH) || cellH;
       var known = !!(frame.dataset.natW || frame.dataset.loaded);
       fitLog((tag || 'live') + ': embed ' + r1(NAT_W) + 'x' + r1(natH) + ' ratio ' + r1(natH / NAT_W) +
         ' (' + (known ? 'reported or loaded' : 'guessed from the panel') + ')');

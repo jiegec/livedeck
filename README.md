@@ -33,8 +33,7 @@ keyboard-driven, two-column deck you can click, swipe and embed live demos in.
     </div>
     <div data-media>
       <img src="diagram.svg" data-caption="A caption">
-      <iframe src="page.html" data-height="420"
-              data-caption="A live, interactive page"></iframe>
+      <iframe src="page.html" data-caption="A live, interactive page"></iframe>
     </div>
   </section>
 </template>
@@ -71,62 +70,19 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 <!-- image / svg -->
 <img src="pic.png" alt="…" data-caption="Shown under the image">
 
-<!-- live iframe; data-height is optional, see the live-embed notes below -->
-<iframe src="page.html" data-height="420"
-        data-caption="Shown under the frame"></iframe>
+<!-- live iframe; see the live-embed notes below -->
+<iframe src="page.html" data-caption="Shown under the frame"></iframe>
 ```
 
-Media cards are laid out in a grid. Only the media itself is sized to fit its cell — the
-card hugs it, so the caption is exactly as wide as the media and no pale bar is left beside
-it. A caption is text and is never scaled with the media; a live embed keeps its own layout
-size and is scaled visually, so an embedded page is never reflowed to fit. The rules the
-deck holds itself to are below.
-
-### How a media panel is laid out
-
-1. **The grid arrangement is chosen, not assumed.** Every column count is a candidate — four
-   cards mean 1x4, 2x2 and 4x1; three mean 1x3, 2x2 and 3x1; two mean 2x1 and 1x2 — with the
-   fewest rows that hold the cards, and the deck keeps the one whose cells waste least of the
-   cards' own aspect ratios, so the media on screen is as large as it can be. On a 1920x444
-   panel four wide cards are half again as large in one row as in a 2x2 grid, while four tall
-   ones on a portrait panel do want the 2x2.
-2. **The arrangement is settled once, and then left alone.** It is decided from the cards'
-   ratios and the room a caption may take; a card whose media changes size later — an image
-   that finally loads, an embed that reflows or reports a new size — re-sizes inside its own
-   cell, and the grid does not shuffle under the reader. Only a change in the room the panel
-   offers (a window resize, a rotation) decides the arrangement again.
-3. **Every card gets a cell of the same size.** Inside it the media keeps its own aspect
-   ratio and, together with the caption, fills the cell as far as one of the two dimensions
-   allows; the card then hugs what came out of that, so its sides are the media's sides.
-4. **The caption's height follows its content, inside a ceiling and a floor.** Its text takes
-   at most a fifth of the card's height and, whenever the content allows, at least a tenth.
-   Inside that range the deck takes the largest font that fits the text under the ceiling,
-   never stepping down past the floor (nor below a legible 11px). A caption still over the
-   ceiling is clipped to whole lines rather than allowed to grow — on a very wide, short cell
-   a caption that gains a line as the card narrows is a card the width solve can only answer
-   by squeezing to a sliver. The caption's padding is not text, so a caption is never clipped
-   away entirely.
-5. **The caption is never covered.** It sits below the media, no line of it is shortened, and
-   nothing is laid over it: the enlarge button belongs to the media, in the media's own
-   bottom-right corner, which is the one thing that can cover a corner of the media itself.
-6. **A live embed owns its own box.** Its frame is never reflowed: the deck lays it out at
-   the size it reports and scales that box to fit. If the embed's aspect ratio changes, the
-   card re-fits around it and the grid arrangement stays as it was.
-
-Nothing has to be declared up front: an image's ratio is read from the image, an embed
-reports its own size, and a card whose media has not given the deck a size yet stays out of
-sight — keeping its place in the grid — until it has. A step is therefore laid out once, in
-the same frame it is switched to, and never corrected in front of the reader; the card then
-fades in. `data-height` on a frame is the one thing worth writing, and only for an embed
-that will never report (see below).
-
-Loading the page with `?fit-debug` in the URL prints every fit to the console: the grid it
-measured, the arrangement it kept, what each caption became, and each round of the width
-solve. That is the log to attach to a report like "four cards on a 1920x444 screen come out
-wrong".
+Nothing has to be declared about a media's size: an image's ratio is read from the image and
+an embed reports its own size, so the deck measures everything at runtime. Cards are laid out
+in a grid whose arrangement the deck picks to show the most media, and each card is exactly
+as wide as its media, so the caption below is neither scaled down with it nor left with a
+pale bar beside it. A live embed keeps its own layout size and is scaled visually, so an
+embedded page is never reflowed to fit.
 
 Every media card carries an **enlarge button** in the bottom-right corner of the media
-itself, so the caption below the media is never asked to make room for it. It fades in when
+itself, so the caption below it is never asked to make room for the button. It fades in when
 you point at the card (and stays visible where there is no hover). An image opens the
 lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
 so the embedded page is never copied, reloaded or moved, and it keeps its state, its input
@@ -134,12 +90,15 @@ and its scroll position. Either way the media is scaled up as far as its own asp
 allows and the box around it follows that size, so no black bars are left over. Esc, a
 click outside, or the × closes it again.
 
+The rules the panel is laid out by, and what the deck measures to satisfy them, are in
+[AGENTS.md](AGENTS.md).
+
 ## Live embeds & `livedeck-live.js`
 
-The embed is an ordinary iframe, so anything works — a simulator, a demo, a widget. For
-auto-sizing, include the tiny helper in the embedded page and call
-`LiveDeck.live.autoResize()`. It reports the page size to the deck via `postMessage`, and
-LiveDeck lays the frame out at its natural size before scaling it into the cell.
+The embed is an ordinary iframe, so anything works — a simulator, a demo, a widget. Include
+the tiny helper in the embedded page and call `LiveDeck.live.autoResize()`: it reports the
+page size to the deck via `postMessage`, and the deck lays the frame out at its natural size
+before scaling it into the cell.
 
 ```html
 <!-- page.html -->
@@ -147,13 +106,10 @@ LiveDeck lays the frame out at its natural size before scaling it into the cell.
 <script>LiveDeck.live.autoResize();</script>
 ```
 
-`data-height` on the source `<iframe>` is the height the frame is given before the embed
-reports its own size, and the height it keeps if nothing ever reports. Include
-`livedeck-live.js` and you do not need it — the report replaces it, and the card waits for
-that report rather than being drawn at a height that then changes. Without the helper,
-nothing reports, so the frame is fitted at `data-height` once it has loaded; leave that out
-too and the deck falls back to the panel's own size, so pick a value that matches the
-embedded page if you want it exact from the first paint.
+There is no size to declare on the `<iframe>`: with the helper the deck waits for the report
+and lays the frame out at that size, so nothing is drawn at a size that then changes. Without
+the helper nothing reports, and the frame is laid out in its cell — the panel's own size —
+once it has loaded; include the helper unless the embedded page cannot have one.
 
 The same page can be embedded several times — every frame is measured and scaled on its
 own. An embed needs no name: the deck recognises a report by the window it came from, your
@@ -185,7 +141,7 @@ LiveDeck.live.autoResize({
         content: '<p>Inline HTML</p>',
         media: [
           { type: 'img', src: 'pic.png', caption: 'An image' },
-          { type: 'live', src: 'page.html', height: 420, caption: 'A demo' }
+          { type: 'live', src: 'page.html', caption: 'A demo' }
         ]
       }
     ]
@@ -285,6 +241,7 @@ verbatim.)
 livedeck.js          # framework (UMD)
 livedeck.css         # framework + default content components
 livedeck-live.js     # helper for live iframe embeds
+AGENTS.md            # the layout rules and internals, for people changing the deck
 examples/
   build.sh           # assembles the example site into _site/
   site/
