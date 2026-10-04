@@ -83,7 +83,9 @@ Every media card carries an **enlarge button** in its bottom-right corner. It fa
 you point at the card (and stays visible where there is no hover). An image opens the
 lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
 so the embedded page is never copied, reloaded or moved, and it keeps its state, its input
-and its scroll position. Esc, a click outside, or the × closes it again.
+and its scroll position. Either way the media is scaled up as far as its own aspect ratio
+allows and the box around it follows that size, so no black bars are left over. Esc, a
+click outside, or the × closes it again.
 
 ## Live embeds & `livedeck-live.js`
 

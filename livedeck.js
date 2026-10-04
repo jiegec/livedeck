@@ -590,22 +590,57 @@
     if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(scheduleFit);
 
     /* ---------- image lightbox ---------- */
+    var lbBox = lightbox.querySelector('.lb-box');
     var lbImg = lightbox.querySelector('.lb-img');
     var lbCap = lightbox.querySelector('.lb-cap');
-    function openLightbox(src, cap, alt) {
+    // Natural size of the image on show: the card's copy is already decoded, so
+    // passing it in lets the first fit happen before the lightbox's own copy has
+    // reported a size (and without a frame of the old, box-filling layout).
+    var lbNat = [0, 0];
+    // The lightbox hugs its image: scale it to the largest size with its own
+    // aspect ratio that fits the room, then take that size for the box, so the
+    // image is as large as it can be and no black bars are left on any side.
+    // (The live lightbox below works the same way, hence the same shape.)
+    function fitLightbox() {
+      if (!lightbox.classList.contains('open')) return;
+      var natW = lbImg.naturalWidth || lbNat[0], natH = lbImg.naturalHeight || lbNat[1];
+      if (!natW || !natH) return;
+      // Back to the largest box CSS allows, which is also what a resize has to
+      // measure against again.
+      lbBox.style.width = lbBox.style.height = '';
+      lbImg.style.width = lbImg.style.height = '';
+      var availW = lbBox.clientWidth;
+      var availH = lbBox.clientHeight - (lbCap.hidden ? 0 : lbCap.offsetHeight);
+      if (availW <= 0 || availH <= 0) return;
+      var s = Math.min(availW / natW, availH / natH);
+      lbImg.style.width = (natW * s) + 'px';
+      lbImg.style.height = (natH * s) + 'px';
+      lbBox.style.width = (natW * s) + 'px';
+      // The caption may need another line at this width, so let the box grow to
+      // whatever the two of them add up to.
+      lbBox.style.height = 'auto';
+    }
+    function openLightbox(src, cap, alt, natW, natH) {
+      lbNat = [natW || 0, natH || 0];
       lbImg.src = src;
       lbImg.alt = alt || cap || '';
       lbCap.textContent = cap || '';
+      lbCap.hidden = !cap; // an empty caption would only be a dark strip
       lightbox.classList.add('open');
+      fitLightbox(); // sizes it right away if the image is already decoded
     }
     function closeLightbox() {
       lightbox.classList.remove('open');
       lbImg.removeAttribute('src');
     }
+    on(lbImg, 'load', function () { fitLightbox(); });
     function openImageLightbox(card) {
       var img = card.querySelector('img');
       var cap = card.querySelector('figcaption');
-      if (img) openLightbox(img.currentSrc || img.src, cap ? cap.textContent : '', img.alt);
+      if (img) {
+        openLightbox(img.currentSrc || img.src, cap ? cap.textContent : '', img.alt,
+          img.naturalWidth, img.naturalHeight);
+      }
     }
     deck.querySelectorAll('.media-card.image-card').forEach(function (card) {
       card.style.cursor = 'zoom-in';
@@ -647,11 +682,12 @@
       if (open && !destroyed) fitCurrent(); // synchronous: no half-restored frame is painted
     }
 
-    // Fit the embed's natural box into the lightbox and fill it, the way
-    // object-fit:contain does for an image: the wrapper takes the *fitted* size
-    // (so the caption and centring lay out around it) and the frame, which keeps
-    // its own layout size, is scaled to match. The embedded page is therefore
-    // never reflowed, just shown larger.
+    // Fit the embed's natural box into the lightbox the way object-fit:contain
+    // fits an image, then shrink the card onto the result: the frame keeps its
+    // own layout size and is scaled, and the wrapper and the card take the
+    // *fitted* size, so the embed fills the lightbox instead of floating in a
+    // box that is always 1300x820 with black bars down the sides. The embedded
+    // page is never reflowed, only shown larger.
     function fitZoom() {
       if (!zoomed) return;
       var wrap = zoomed.querySelector('.live-wrap');
@@ -660,14 +696,22 @@
       if (!wrap || !frame) return;
       var natW = parseFloat(frame.dataset.natW) || frame.offsetWidth;
       var natH = parseFloat(frame.dataset.natH) || frame.offsetHeight;
+      // Back to the size CSS allows it (the widest the caption can be laid out
+      // at), which is also what a resize has to measure against again.
+      zoomed.style.width = zoomed.style.height = '';
       var availW = zoomed.clientWidth;
       var availH = zoomed.clientHeight - (cap ? cap.offsetHeight : 0);
       if (!natW || !natH || availW <= 0 || availH <= 0) return;
       var s = Math.min(availW / natW, availH / natH);
-      wrap.style.width = (natW * s) + 'px';
-      wrap.style.height = (natH * s) + 'px';
+      var w = natW * s, h = natH * s;
+      wrap.style.width = w + 'px';
+      wrap.style.height = h + 'px';
       frame.style.transformOrigin = 'top left';
       frame.style.transform = 'scale(' + s + ')';
+      zoomed.style.width = w + 'px';
+      // The card is narrower now, so the caption may have wrapped onto another
+      // line: let the height follow from the wrapper plus whatever it needs.
+      zoomed.style.height = 'auto';
     }
 
     function openZoom(card) {
@@ -865,8 +909,8 @@
 
     /* ---------- init ---------- */
     checkRotate();
-    on(window, 'resize', function () { checkRotate(); if (zoomed) fitZoom(); scheduleFit(); });
-    on(window, 'orientationchange', function () { checkRotate(); if (zoomed) fitZoom(); scheduleFit(); });
+    on(window, 'resize', function () { checkRotate(); if (zoomed) fitZoom(); fitLightbox(); scheduleFit(); });
+    on(window, 'orientationchange', function () { checkRotate(); if (zoomed) fitZoom(); fitLightbox(); scheduleFit(); });
     // Follow runtime hash changes (in-page links, manual edits). The deck's own
     // replaceState rewrites don't fire hashchange, so this can't loop.
     on(window, 'hashchange', function () {

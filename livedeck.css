@@ -291,6 +291,7 @@ body {
 
 #lightbox .lb-box {
   position: relative;
+  /* The largest it is allowed to be: fitLightbox() then hugs the image. */
   width: min(92vw, 1300px);
   height: min(86vh, 820px);
   display: flex;
@@ -316,9 +317,15 @@ body {
 
 #lightbox .lb-img {
   display: block;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
+  /* Sized by fitLightbox() to the image's own aspect ratio, with the box hugging
+     it. The max-* / object-fit pair only matters before that has run (or if the
+     image never reports a size), where it keeps the picture inside the box
+     instead of letting it overflow. */
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   background: #fff;
 }
@@ -453,6 +460,8 @@ body {
   bottom: auto;
   margin: 0;
   padding: 0;
+  /* The largest it is allowed to be, and what fitZoom() measures against; it
+     then sets its own width and hugs the embed. */
   width: min(92vw, 1300px);
   height: min(86vh, 820px);
   max-width: none;
@@ -485,8 +494,7 @@ body {
   }
 }
 
-/* Sized to the fitted embed by fitZoom(); auto margins centre it in the space
-   above the caption, which then sits at the bottom of the box. */
+/* Sized to the fitted embed by fitZoom(), so it fills the box exactly. */
 .media-card.live-card.zoomed .live-wrap {
   flex: 0 0 auto;
   margin: auto;
