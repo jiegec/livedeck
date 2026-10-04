@@ -536,13 +536,29 @@
       nextBtn.innerHTML = current === total - 1 ? T.done : T.next;
     }
 
-    function go(index) {
+    // Keep the address bar on the current step. By default a step is *pushed*,
+    // so the browser's Back/Forward walk the steps the reader visited, exactly
+    // like the arrow keys do; 'replace' is for the step the deck starts on, and
+    // 'none' for a move the browser itself asked for (a Back must not push the
+    // step it is leaving).
+    function recordStep(mode) {
+      if (mode === 'none') return;
+      var url = '#step-' + (current + 1);
+      try {
+        if (mode === 'replace') history.replaceState(null, '', url);
+        else history.pushState(null, '', url);
+      } catch (e) { /* file:// forbids history changes */ }
+    }
+
+    function go(index, mode) {
       if (destroyed) return;
       closeZoom();
+      closeLightbox();
       index = Math.round(Number(index));
       if (!isFinite(index)) return;
       if (index < 0) index = 0;
       if (index > total - 1) { openOverview(); return; }
+      var moved = index !== current;
       closeOverview();
       current = index;
       visited[current] = true;
@@ -551,7 +567,9 @@
       scheduleFit();
       later(fitCurrent, 260);
       later(fitCurrent, 600);
-      try { history.replaceState(null, '', '#step-' + (current + 1)); } catch (e) { /* file:// */ }
+      // A step that did not actually change (Prev on the first step, say) would
+      // only fill the history with entries that go nowhere.
+      recordStep(mode || (moved ? 'push' : 'none'));
       emit('change', { index: current, slide: SLIDES[current], total: total });
     }
 
@@ -911,14 +929,18 @@
     checkRotate();
     on(window, 'resize', function () { checkRotate(); if (zoomed) fitZoom(); fitLightbox(); scheduleFit(); });
     on(window, 'orientationchange', function () { checkRotate(); if (zoomed) fitZoom(); fitLightbox(); scheduleFit(); });
-    // Follow runtime hash changes (in-page links, manual edits). The deck's own
-    // replaceState rewrites don't fire hashchange, so this can't loop.
-    on(window, 'hashchange', function () {
+    // Follow the browser: a Back/Forward, an in-page link or a hand-edited hash
+    // moves the deck, but none of them may push a step of its own. hashchange
+    // covers a changed URL, popstate the traversals that leave it as it is.
+    function followStep() {
       var n = parseInt((location.hash || '').replace('#step-', ''), 10);
-      if (n >= 1 && n <= total && n - 1 !== current) go(n - 1);
-    });
+      if (n >= 1 && n <= total && n - 1 !== current) go(n - 1, 'none');
+    }
+    on(window, 'hashchange', followStep);
+    on(window, 'popstate', followStep);
     var step = parseInt((location.hash || '').replace('#step-', ''), 10);
-    go(step && step >= 1 && step <= total ? step - 1 : 0);
+    go(step && step >= 1 && step <= total ? step - 1 : 0, 'none');
+    recordStep('replace'); // the step the deck starts on takes over the loaded URL
     scheduleFit();
     if (CONFIG.fullScreenOnLoad && doc.documentElement.requestFullscreen) {
       quiet(doc.documentElement.requestFullscreen());

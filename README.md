@@ -183,6 +183,10 @@ and `destroy()`, plus `index`, `total`, `config`, `slides` and `element`.
 
 Swipe left/right on touch devices; portrait phones get a "rotate" hint.
 
+Every step is a URL (`#step-3`), and moving to one pushes a history entry, so the browser's
+Back and Forward walk through the steps you visited and any step can be linked to. A move
+that does not actually change the step — `←` on the first step, say — adds no entry.
+
 ## i18n
 
 Built-in languages: `en`, `zh-CN`. Add or override any string:
