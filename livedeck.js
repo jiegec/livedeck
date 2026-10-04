@@ -127,7 +127,10 @@
         '</figure>';
     },
     live: function (m) {
-      var h = parseInt(m.height, 10) || 420;
+      // No height is invented for an embed that declares none: the deck waits for
+      // the embed to report its real size instead, and only data-height (below)
+      // can stand in for a page that is never going to report one.
+      var h = parseInt(m.height, 10) || 0;
       // The src is emitted exactly as the author wrote it. An embed carries no
       // identifier at all: the deck tells reports apart by the window they came
       // from, so nothing has to name it (a slide has data-index, its media cards
@@ -135,9 +138,10 @@
       return '<div class="media-card live-card">' +
         '<div class="live-wrap">' +
         '<iframe class="live-frame"' +
-        ' src="' + escAttr(m.src) + '" scrolling="no" loading="eager" height="' + escAttr(h) + '"' +
+        ' src="' + escAttr(m.src) + '" scrolling="no" loading="eager"' +
+        (h > 0 ? ' height="' + h + '"' : '') +
         ' title="' + escAttr(m.caption || '') + '"' +
-        ' style="width:100%;height:' + h + 'px;border:0;"></iframe>' +
+        ' style="width:100%;' + (h > 0 ? 'height:' + h + 'px;' : '') + 'border:0;"></iframe>' +
         '</div>' +
         (m.caption ? '<div class="caption">' + escHtml(m.caption) + '</div>' : '') +
         '</div>';
@@ -176,7 +180,7 @@
           return {
             type: 'live',
             src: el.getAttribute('src') || '',
-            height: parseInt(el.getAttribute('data-height'), 10) || 420,
+            height: parseInt(el.getAttribute('data-height'), 10) || 0,
             caption: caption,
           };
         }
@@ -208,7 +212,10 @@
           type: m.type || 'img',
           src: m.src || '',
           alt: m.alt != null ? m.alt : null,
-          height: m.height || 420,
+          // A declared height is a hint for an embed that cannot report its own
+          // size; there is no default, because a made-up size is a guess the deck
+          // would have to correct (it measures the media at runtime instead).
+          height: m.height || 0,
           caption: m.caption || '',
         };
       }),
@@ -440,18 +447,19 @@
       var rows = Math.ceil(N / cols);
       grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
       grid.style.gridAutoRows = 'minmax(0, 1fr)';
-      requestAnimationFrame(function () {
-        var gW = grid.clientWidth, gH = grid.clientHeight;
-        if (!gW || !gH) return;
-        var gcs = getComputedStyle(grid);
-        var colGap = parseFloat(gcs.columnGap) || 0;
-        var rowGap = parseFloat(gcs.rowGap) || 0;
-        var cellW = (gW - (cols - 1) * colGap) / cols;
-        var cellH = (gH - (rows - 1) * rowGap) / rows;
-        cards.forEach(function (card) {
-          if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH);
-          else fitImageCard(card, cellW, cellH);
-        });
+      // Measured and fitted here, in the caller's frame: the grid's own size does
+      // not depend on the template set above, and a step that is switched to and
+      // then fitted a frame later is a step whose media is painted twice.
+      var gW = grid.clientWidth, gH = grid.clientHeight;
+      if (!gW || !gH) return;
+      var gcs = getComputedStyle(grid);
+      var colGap = parseFloat(gcs.columnGap) || 0;
+      var rowGap = parseFloat(gcs.rowGap) || 0;
+      var cellW = (gW - (cols - 1) * colGap) / cols;
+      var cellH = (gH - (rows - 1) * rowGap) / rows;
+      cards.forEach(function (card) {
+        if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH);
+        else fitImageCard(card, cellW, cellH);
       });
     }
 
@@ -482,10 +490,39 @@
       return mediaW;
     }
 
+    // A card is only shown once the deck knows the size its media wants: a card
+    // painted at a guessed size and corrected a frame later is what the eye
+    // catches as a flicker on the first visit to a step. The wait normally ends
+    // when the media's own signal arrives (an image's load or error, an embed's
+    // report or load); PENDING_MS is only a last resort, because an embed is free
+    // to tell the deck nothing at all and the card must not stay hidden for good.
+    var PENDING_MS = 2000;
+    function setPending(card, on) {
+      if (on && card.dataset.shown) return; // once seen, a card is not hidden again
+      if (on === card.classList.contains('pending')) return;
+      if (!on) card.dataset.shown = '1';
+      card.classList.toggle('pending', on);
+      if (on) later(function () {
+        if (destroyed || !card.classList.contains('pending')) return;
+        card.classList.remove('pending');
+        card.dataset.shown = '1';
+        scheduleFit(); // fitted in the same frame, so the correction is never seen
+      }, PENDING_MS);
+    }
+
     function fitImageCard(card, cellW, cellH) {
       var img = card.querySelector('img');
       if (!img) return;
       var cap = card.querySelector('figcaption') || card.querySelector('.caption');
+      // An image has no size of its own until its bytes say so, and what it does
+      // lay out as in the meantime — the alt text of a broken icon, say — is not a
+      // size to fit. Load or error settles it, and the card stays out of sight in
+      // the meantime; the whole deck measures its media at runtime, so nothing has
+      // to be declared up front.
+      if (!img.complete) {
+        setPending(card, true);
+        return;
+      }
       // Measure the image at the widest the card may get, so the ratio does not
       // depend on the width being solved for.
       card.style.width = cellW + 'px';
@@ -493,7 +530,8 @@
       img.style.height = '';
       var natW = img.offsetWidth;
       var natH = img.offsetHeight;
-      if (!natW || !natH) return;
+      setPending(card, false); // settled: the card may be shown…
+      if (!natW || !natH) return; // …even when it settled into nothing to fit
       var ratio = natH / natW;
       var mediaW = fitCardWidth(card, cellW, cellH, ratio, cap);
       img.style.width = mediaW + 'px';
@@ -506,8 +544,12 @@
       var cap = card.querySelector('.caption');
       var media = card.closest('.media-grid');
       if (!wrap || !frame) return;
-      var NAT_W = parseFloat(frame.dataset.natW) || Math.max(480, cellW);
-      var natH = parseFloat(frame.dataset.natH) || parseInt(frame.getAttribute('height'), 10) || 480;
+      // An embed is laid out at its own size, so the deck has to learn that size
+      // before it can fit the card. Until a report arrives the panel's own size is
+      // the only honest guess: an embed lays itself out at the width it is given
+      // and in the room it is given, so it is measured, not second-guessed.
+      var NAT_W = parseFloat(frame.dataset.natW) || cellW;
+      var natH = parseFloat(frame.dataset.natH) || parseInt(frame.getAttribute('height'), 10) || cellH;
       var mediaW = fitCardWidth(card, cellW, cellH, natH / NAT_W, cap);
       // The frame keeps its own layout size — an embedded page is never reflowed
       // to fit — and is scaled inside a wrapper that takes the fitted size, so
@@ -519,6 +561,9 @@
       wrap.style.width = mediaW + 'px';
       wrap.style.height = (mediaW * (natH / NAT_W)) + 'px';
       if (media) media.style.overflowY = 'visible';
+      // Guessing is what has to be kept off the screen, so the card waits for the
+      // embed's own report (or for it to finish loading) before it is shown at all.
+      setPending(card, !(frame.dataset.natW || frame.dataset.loaded));
     }
 
     var fitRaf;
@@ -620,6 +665,16 @@
     deck.querySelectorAll('img').forEach(function (img) {
       on(img, 'load', scheduleFit);
       on(img, 'error', scheduleFit);
+    });
+    // An embed that reports nothing (no live helper in the page) is fitted at the
+    // size it declared, once it has loaded. A frame whose load went by before the
+    // deck was mounted never fires one, so ask the document itself where that is
+    // allowed; a cross-origin frame can only be vouched for by a report.
+    deck.querySelectorAll('iframe.live-frame').forEach(function (frame) {
+      on(frame, 'load', function () { frame.dataset.loaded = '1'; scheduleFit(); });
+      try {
+        if (frame.contentDocument && frame.contentDocument.readyState === 'complete') frame.dataset.loaded = '1';
+      } catch (e) { /* cross-origin: nothing to read */ }
     });
     if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(scheduleFit);
 

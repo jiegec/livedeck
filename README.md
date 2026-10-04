@@ -81,6 +81,13 @@ sized to fit the cell — the card hugs it, so the caption is exactly as wide as
 keeps the page's normal type size however far the media has to shrink. A live embed keeps
 its own layout size and is scaled visually, so an embedded page is never reflowed to fit.
 
+Nothing has to be declared up front: an image's ratio is read from the image, an embed
+reports its own size, and a card whose media has not given the deck a size yet stays out of
+sight — keeping its place in the grid — until it has. A step is therefore laid out once, in
+the same frame it is switched to, and never corrected in front of the reader; the card then
+fades in. `data-height` on a frame is the one thing worth writing, and only for an embed
+that will never report (see below).
+
 Every media card carries an **enlarge button** in its bottom-right corner. It fades in when
 you point at the card (and stays visible where there is no hover). An image opens the
 lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
@@ -102,12 +109,13 @@ LiveDeck lays the frame out at its natural size before scaling it into the cell.
 <script>LiveDeck.live.autoResize();</script>
 ```
 
-`data-height` on the source `<iframe>` is the height the frame is given **before** the embed
+`data-height` on the source `<iframe>` is the height the frame is given before the embed
 reports its own size, and the height it keeps if nothing ever reports. Include
-`livedeck-live.js` and you do not need it — the report replaces it, so it only affects the
-first paint (leave it out and 420 is used). Without the helper, nothing reports and the
-height stays at `data-height`: the deck lays the frame out at that height and scales the
-whole box into the cell, so pick a value that matches the embedded page.
+`livedeck-live.js` and you do not need it — the report replaces it, and the card waits for
+that report rather than being drawn at a height that then changes. Without the helper,
+nothing reports, so the frame is fitted at `data-height` once it has loaded; leave that out
+too and the deck falls back to the panel's own size, so pick a value that matches the
+embedded page if you want it exact from the first paint.
 
 The same page can be embedded several times — every frame is measured and scaled on its
 own. An embed needs no name: the deck recognises a report by the window it came from, your

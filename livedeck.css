@@ -206,6 +206,17 @@ body {
   max-width: 100%;
   min-width: 0;
   min-height: 0;
+  transition: opacity .25s ease; /* the fade-in of a card that was waiting (below) */
+}
+
+/* A card whose media has not given the deck a size yet. It keeps its place in the
+   grid — visibility leaves the layout alone, so the media can still be measured —
+   but stays out of sight until the fit that lays it out is the final one, and
+   then fades in, so the wait it spent getting there reads as a reveal rather than
+   as a missing panel. */
+.media-card.pending {
+  visibility: hidden;
+  opacity: 0;
 }
 
 .media-card.image-card img {
