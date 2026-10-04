@@ -79,6 +79,11 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   frame's own `load`; a page that never reports is laid out in its cell. Nothing about a
   media's size is declared anywhere — the deck measures, and sizes that do not exist yet
   are simply not drawn.
+* **Both lightboxes bound their caption** (`capBand()`, `LIGHTBOX_CAP` of the box) and let it
+  scroll inside that band: the media keeps the rest of the box, the box stays inside the
+  viewport, and a caption too long for the screen is still all reachable — the same reason the
+  grid caption is never clipped. The band is cleared when a card leaves the lightbox, so it
+  never follows the caption back into the grid.
 * **The live lightbox promotes the card in place** with the Popover API instead of moving it,
   so the iframe is never reloaded and keeps its state, input and scroll position. `Esc` and
   a press outside are handled by the deck (`popover="manual"`), and the fit is restored

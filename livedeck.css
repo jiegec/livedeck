@@ -356,6 +356,10 @@ body {
 #lightbox .lb-cap {
   flex: 0 0 auto;
   width: 100%;
+  /* capBand() gives it a share of the box to scroll in, so a long caption cannot
+     push the picture out of the lightbox (or itself out of reach). */
+  overflow: auto;
+  overscroll-behavior: contain;
   color: #e2e8f0;
   font-size: 15px;
   line-height: 1.5;
@@ -524,6 +528,9 @@ body {
 
 .media-card.live-card.zoomed .caption {
   flex: 0 0 auto;
+  /* As in the image lightbox: capBand() bounds it, it scrolls inside that. */
+  overflow: auto;
+  overscroll-behavior: contain;
   padding-right: 16px;
   text-align: center;
   color: #e2e8f0;

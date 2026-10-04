@@ -591,6 +591,7 @@
       var hadPad = cap.style.padding;
       cap.style.removeProperty('--cap-size');
       cap.style.padding = '';
+      cap.style.maxHeight = ''; // an enlarged card's scroll band does not belong here
       var cs = getComputedStyle(cap);
       var padTop = parseFloat(cs.paddingTop) || 0, padBottom = parseFloat(cs.paddingBottom) || 0;
       var padLeft = parseFloat(cs.paddingLeft) || 0, padRight = parseFloat(cs.paddingRight) || 0;
@@ -872,6 +873,18 @@
     // aspect ratio that fits the room, then take that size for the box, so the
     // image is as large as it can be and no black bars are left on any side.
     // (The live lightbox below works the same way, hence the same shape.)
+    // A lightbox shows the caption at the theme's size, which on a narrow screen can be
+    // far taller than the lightbox itself. It gets a band of its own to scroll in: the
+    // media keeps the rest of the box, the box stays inside the viewport, and no line of
+    // the caption is cut off. Returns the height that band takes.
+    var LIGHTBOX_CAP = 0.4;
+    function capBand(box, cap) {
+      if (!cap || cap.hidden || !cap.offsetHeight) return 0;
+      cap.style.maxHeight = '';
+      cap.style.maxHeight = Math.max(1, Math.round(box.clientHeight * LIGHTBOX_CAP)) + 'px';
+      return cap.offsetHeight;
+    }
+
     function fitLightbox() {
       if (!lightbox.classList.contains('open')) return;
       var natW = lbImg.naturalWidth || lbNat[0], natH = lbImg.naturalHeight || lbNat[1];
@@ -880,8 +893,9 @@
       // measure against again.
       lbBox.style.width = lbBox.style.height = '';
       lbImg.style.width = lbImg.style.height = '';
+      var capH = capBand(lbBox, lbCap);
       var availW = lbBox.clientWidth;
-      var availH = lbBox.clientHeight - (lbCap.hidden ? 0 : lbCap.offsetHeight);
+      var availH = lbBox.clientHeight - capH;
       if (availW <= 0 || availH <= 0) return;
       var s = Math.min(availW / natW, availH / natH);
       lbImg.style.width = (natW * s) + 'px';
@@ -970,8 +984,9 @@
       // Back to the size CSS allows it (the widest the caption can be laid out
       // at), which is also what a resize has to measure against again.
       zoomed.style.width = zoomed.style.height = '';
+      var capH = capBand(zoomed, cap);
       var availW = zoomed.clientWidth;
-      var availH = zoomed.clientHeight - (cap ? cap.offsetHeight : 0);
+      var availH = zoomed.clientHeight - capH;
       if (!natW || !natH || availW <= 0 || availH <= 0) return;
       var s = Math.min(availW / natW, availH / natH);
       var w = natW * s, h = natH * s;
