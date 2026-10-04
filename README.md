@@ -71,7 +71,7 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 <!-- image / svg -->
 <img src="pic.png" alt="…" data-caption="Shown under the image">
 
-<!-- live iframe -->
+<!-- live iframe; data-height is optional, see the live-embed notes below -->
 <iframe src="page.html" data-height="420"
         data-caption="Shown under the frame"></iframe>
 ```
@@ -91,6 +91,13 @@ LiveDeck lays the frame out at its natural size before scaling it into the cell.
 <script src="../livedeck-live.js"></script>
 <script>LiveDeck.live.autoResize();</script>
 ```
+
+`data-height` on the source `<iframe>` is the height the frame is given **before** the embed
+reports its own size, and the height it keeps if nothing ever reports. Include
+`livedeck-live.js` and you do not need it — the report replaces it, so it only affects the
+first paint (leave it out and 420 is used). Without the helper, nothing reports and the
+height stays at `data-height`: the deck lays the frame out at that height and scales the
+whole box into the cell, so pick a value that matches the embedded page.
 
 The same page can be embedded several times — every frame is measured and scaled on its
 own. An embed needs no name: the deck recognises a report by the window it came from, your
