@@ -31,6 +31,7 @@
       overviewHead: '📑 Jump to a step (click, press G to close)',
       visited: 'Seen ✔',
       closeTitle: 'Close (Esc)',
+      zoomTitle: 'Enlarge',
       rotateTitle: 'Please rotate your phone',
       rotateText: 'This deck uses a two-column layout.<br>Landscape looks best.',
       rotateContinue: 'Continue in portrait',
@@ -50,6 +51,7 @@
       overviewHead: '📑 选择一步（点击跳转，G 键关闭）',
       visited: '已看 ✔',
       closeTitle: '关闭 (Esc)',
+      zoomTitle: '放大',
       rotateTitle: '请将手机横屏',
       rotateText: '本演示采用左右双栏布局，<br>横屏观看效果最佳。',
       rotateContinue: '仍要继续（竖屏）',
@@ -453,6 +455,13 @@
       });
     }
 
+    // The card is scaled to fit its cell; counter-scale the zoom button so it
+    // stays a comfortable target however small the card got.
+    function scaleZoom(card, s) {
+      var btn = card.querySelector('.media-zoom');
+      if (btn && s > 0) btn.style.transform = 'scale(' + (1 / s) + ')';
+    }
+
     function fitImageCard(card, cellW, cellH) {
       var img = card.querySelector('img');
       if (!img) return;
@@ -466,6 +475,7 @@
       if (!natW || !natH) return;
       var s = Math.min(cellW / natW, cellH / natH);
       card.style.transform = 'scale(' + s + ')';
+      scaleZoom(card, s);
     }
 
     function fitLiveCard(card, cellW, cellH) {
@@ -491,11 +501,13 @@
       var natHTotal = card.offsetHeight || (natH + (cap ? cap.offsetHeight : 0));
       var s = Math.min(cellW / natW, cellH / natHTotal);
       card.style.transform = 'scale(' + s + ')';
+      scaleZoom(card, s);
       if (media) media.style.overflowY = (natHTotal * s > cellH + 4) ? 'auto' : 'visible';
     }
 
     var fitRaf;
     function fitCurrent() {
+      if (zoomed) return; // the enlarged card is laid out by CSS while it is open
       var s = deck.querySelector('.slide.active');
       if (!s) return;
       Array.prototype.slice.call(s.querySelectorAll('.panel')).forEach(function (p) {
@@ -526,6 +538,7 @@
 
     function go(index) {
       if (destroyed) return;
+      closeZoom();
       index = Math.round(Number(index));
       if (!isFinite(index)) return;
       if (index < 0) index = 0;
@@ -560,6 +573,9 @@
       if (!e.data || e.data.type !== 'resize' || !e.data.height) return;
       var frame = liveFrameFrom(e.source);
       if (!frame) return;
+      // While its card is enlarged the frame gets the whole viewport, so the
+      // numbers it reports from in there must not become the grid's geometry.
+      if (zoomed && zoomed.contains(frame)) return;
       if (e.data.width) { frame.dataset.natW = e.data.width; frame.style.width = e.data.width + 'px'; }
       frame.dataset.natH = e.data.height;
       frame.style.height = e.data.height + 'px';
@@ -586,13 +602,14 @@
       lightbox.classList.remove('open');
       lbImg.removeAttribute('src');
     }
+    function openImageLightbox(card) {
+      var img = card.querySelector('img');
+      var cap = card.querySelector('figcaption');
+      if (img) openLightbox(img.currentSrc || img.src, cap ? cap.textContent : '', img.alt);
+    }
     deck.querySelectorAll('.media-card.image-card').forEach(function (card) {
       card.style.cursor = 'zoom-in';
-      on(card, 'click', function () {
-        var img = card.querySelector('img');
-        var cap = card.querySelector('figcaption');
-        if (img) openLightbox(img.currentSrc || img.src, cap ? cap.textContent : '', img.alt);
-      });
+      on(card, 'click', function () { openImageLightbox(card); });
     });
     on(lightbox, 'click', function (e) {
       if (e.target === lightbox || e.target.classList.contains('lb-close')) closeLightbox();
@@ -600,6 +617,116 @@
     on(doc, 'keydown', function (e) {
       if (lightbox.classList.contains('open') && e.key === 'Escape') { e.stopPropagation(); closeLightbox(); }
     }, true);
+
+    /* ---------- live lightbox ----------
+     * An image can be enlarged by re-showing its src, so #lightbox copies it. A
+     * live frame cannot: copying it starts a second document, and moving it ends
+     * the first one (the HTML spec destroys an iframe's child navigable on
+     * removal and creates a new one on insertion, so any DOM move reloads the
+     * page). So nothing is moved here — the card is promoted to the top layer
+     * with the Popover API instead, which leaves the frame exactly where it is
+     * and therefore keeps its document, its input and its JS state. A top-layer
+     * element with position:fixed is laid out against the viewport, so no
+     * ancestor transform, overflow or opacity can clip or displace it. */
+    var zoomed = null;
+
+    // Runs synchronously from beforetoggle (i.e. before the popover actually
+    // closes) so the card is a plain grid card again by the time it would
+    // otherwise hit the UA's [popover]:not(:popover-open) { display: none },
+    // which would blink a hole in the grid. A closed popover is also no longer
+    // a popover at all, hence the attribute coming off.
+    function zoomClosed(card) {
+      var open = zoomed === card;
+      card.removeAttribute('popover');
+      card.classList.remove('zoomed');
+      if (open) zoomed = null;
+      if (open && !destroyed) fitCurrent(); // synchronous: no half-restored frame is painted
+    }
+
+    // Fit the embed's natural box into the lightbox and fill it, the way
+    // object-fit:contain does for an image: the wrapper takes the *fitted* size
+    // (so the caption and centring lay out around it) and the frame, which keeps
+    // its own layout size, is scaled to match. The embedded page is therefore
+    // never reflowed, just shown larger.
+    function fitZoom() {
+      if (!zoomed) return;
+      var wrap = zoomed.querySelector('.live-wrap');
+      var frame = zoomed.querySelector('.live-frame');
+      var cap = zoomed.querySelector('.caption');
+      if (!wrap || !frame) return;
+      var natW = parseFloat(frame.dataset.natW) || frame.offsetWidth;
+      var natH = parseFloat(frame.dataset.natH) || frame.offsetHeight;
+      var availW = zoomed.clientWidth;
+      var availH = zoomed.clientHeight - (cap ? cap.offsetHeight : 0);
+      if (!natW || !natH || availW <= 0 || availH <= 0) return;
+      var s = Math.min(availW / natW, availH / natH);
+      wrap.style.width = (natW * s) + 'px';
+      wrap.style.height = (natH * s) + 'px';
+      frame.style.transformOrigin = 'top left';
+      frame.style.transform = 'scale(' + s + ')';
+    }
+
+    function openZoom(card) {
+      if (destroyed || zoomed || !card.showPopover) return;
+      if (!card.querySelector('.live-frame')) return;
+      // Hand the card's box to CSS while it is enlarged; scheduleFit() rebuilds
+      // every size on the way out (fitLiveCard re-sets all of them).
+      card.style.width = card.style.height = '';
+      card.style.transform = '';
+      card.setAttribute('popover', 'auto');
+      card.classList.add('zoomed');
+      zoomed = card;
+      try {
+        card.showPopover();
+      } catch (e) {
+        zoomClosed(card);
+        return;
+      }
+      fitZoom();
+    }
+
+    function closeZoom() {
+      if (!zoomed) return;
+      var card = zoomed;
+      try {
+        if (card.hidePopover) card.hidePopover();
+      } catch (e) { /* fall through: clean up either way */ }
+      zoomClosed(card);
+    }
+    function addZoom(card) {
+      var live = !!card.querySelector('.live-frame');
+      if ((!live && !card.querySelector('img')) || card.querySelector('.media-zoom')) return;
+      if (live && typeof card.showPopover !== 'function') return;
+      var btn = doc.createElement('button');
+      btn.type = 'button';
+      btn.className = 'media-zoom';
+      btn.title = T.zoomTitle;
+      btn.setAttribute('aria-label', T.zoomTitle);
+      // The icon itself is drawn in CSS, so it needs no font and no translation.
+      on(btn, 'click', function (e) {
+        e.preventDefault();
+        e.stopPropagation(); // an image card opens its lightbox on click as well
+        if (live) openZoom(card); else openImageLightbox(card);
+      });
+      // First child: a <figcaption> has to stay the figure's last child, and the
+      // button is absolutely positioned, so DOM order says nothing visually.
+      card.insertBefore(btn, card.firstChild);
+      if (!live) return;
+      var close = doc.createElement('button');
+      close.type = 'button';
+      close.className = 'media-close';
+      close.title = T.closeTitle;
+      close.setAttribute('aria-label', T.closeTitle);
+      close.textContent = '×';
+      on(close, 'click', function (e) { e.preventDefault(); e.stopPropagation(); closeZoom(); });
+      card.insertBefore(close, card.firstChild);
+      // Esc and a click outside close the popover inside the UA; beforetoggle
+      // is the synchronous hook for those, toggle the safety net for the rest.
+      on(card, 'beforetoggle', function (e) { if (e.newState !== 'open') zoomClosed(card); });
+      on(card, 'toggle', function (e) { if (e.newState !== 'open') zoomClosed(card); });
+    }
+    // Injected rather than rendered so custom renderers get the button too.
+    deck.querySelectorAll('.media-card').forEach(addZoom);
 
     /* ---------- bottom buttons ---------- */
     on(prevBtn, 'click', function () { go(current - 1); });
@@ -638,7 +765,7 @@
     on(doc, 'keydown', function (e) {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       // Don't navigate behind a modal overlay (Esc closes the lightbox).
-      if (lightbox.classList.contains('open') || rotateOverlay.classList.contains('show')) return;
+      if (zoomed || lightbox.classList.contains('open') || rotateOverlay.classList.contains('show')) return;
       var t = e.target;
       if (isTypingTarget(t)) return;
       // Let a focused button/link/control handle Space/Enter itself.
@@ -676,7 +803,12 @@
           '</button>';
       }).join('');
     }
-    function openOverview() { if (destroyed) return; renderOverview(); overview.classList.add('open'); }
+    function openOverview() {
+      if (destroyed) return;
+      closeZoom();
+      renderOverview();
+      overview.classList.add('open');
+    }
     function closeOverview() { overview.classList.remove('open'); }
     function toggleOverview() {
       overview.classList.contains('open') ? closeOverview() : openOverview();
@@ -703,8 +835,8 @@
 
     /* ---------- init ---------- */
     checkRotate();
-    on(window, 'resize', function () { checkRotate(); scheduleFit(); });
-    on(window, 'orientationchange', function () { checkRotate(); scheduleFit(); });
+    on(window, 'resize', function () { checkRotate(); if (zoomed) fitZoom(); scheduleFit(); });
+    on(window, 'orientationchange', function () { checkRotate(); if (zoomed) fitZoom(); scheduleFit(); });
     // Follow runtime hash changes (in-page links, manual edits). The deck's own
     // replaceState rewrites don't fire hashchange, so this can't loop.
     on(window, 'hashchange', function () {
@@ -743,6 +875,7 @@
       },
       destroy: function () {
         destroyed = true;
+        closeZoom();
         if (fitRaf) { cancelAnimationFrame(fitRaf); fitRaf = null; }
         timers.forEach(function (id) { clearTimeout(id); });
         timers.length = 0;

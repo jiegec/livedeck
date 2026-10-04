@@ -355,6 +355,179 @@ body {
   background: rgba(255, 255, 255, .3)
 }
 
+/* ---------- Enlarge button ---------- */
+
+.media-zoom,
+.media-close {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, .6);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  /* A card is scaled to fit its cell; scaleZoom() undoes that here. */
+  transform-origin: 100% 100%;
+}
+
+.media-zoom:hover,
+.media-close:hover {
+  background: rgba(15, 23, 42, .88)
+}
+
+/* The enlarge icon: two opposing corner brackets, drawn rather than typed so it
+   needs no font coverage (and counter-scales cleanly). */
+.media-zoom::before,
+.media-zoom::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+}
+
+.media-zoom::before {
+  top: 5px;
+  right: 5px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+}
+
+.media-zoom::after {
+  bottom: 5px;
+  left: 5px;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+}
+
+/* Out of the way until the card is pointed at, so a live embed's own controls
+   stay reachable. Touch devices have no hover, so there the button stays put. */
+.media-zoom {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease;
+}
+
+.media-card:hover .media-zoom,
+.media-card:focus-within .media-zoom {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .media-zoom {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Room for the button, so it never covers caption text. */
+.media-card .caption,
+.media-card figcaption {
+  padding-right: 48px;
+}
+
+.media-close {
+  display: none;
+}
+
+/* ---------- Live lightbox ----------
+   The card is promoted to the top layer (see openZoom) instead of being moved,
+   so the iframe inside it is never reloaded. Everything below just dresses the
+   promoted card up as the same box #lightbox uses for images. */
+
+.media-card.live-card.zoomed {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  margin: 0;
+  padding: 0;
+  width: min(92vw, 1300px);
+  height: min(86vh, 820px);
+  max-width: none;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 12px;
+  background: #0b0e18;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+  overflow: hidden;
+  animation: lbZoom .22s ease;
+}
+
+.media-card.live-card.zoomed::backdrop {
+  background: rgba(10, 12, 20, .86);
+  backdrop-filter: blur(2px);
+}
+
+@keyframes lbZoom {
+  0% {
+    transform: translate(-50%, -50%) scale(.94);
+    opacity: 0
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1
+  }
+}
+
+/* Sized to the fitted embed by fitZoom(); auto margins centre it in the space
+   above the caption, which then sits at the bottom of the box. */
+.media-card.live-card.zoomed .live-wrap {
+  flex: 0 0 auto;
+  margin: auto;
+  max-width: none;
+  max-height: none;
+}
+
+.media-card.live-card.zoomed .live-frame {
+  max-width: none;
+  max-height: none;
+}
+
+.media-card.live-card.zoomed .caption {
+  flex: 0 0 auto;
+  padding-right: 16px;
+  text-align: center;
+  color: #e2e8f0;
+  background: #0b0e18;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+}
+
+.media-card.live-card.zoomed .media-zoom {
+  display: none;
+}
+
+.media-card.live-card.zoomed .media-close {
+  display: flex;
+  top: 10px;
+  right: 12px;
+  bottom: auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 22px;
+  background: rgba(255, 255, 255, .16);
+}
+
+.media-card.live-card.zoomed .media-close:hover {
+  background: rgba(255, 255, 255, .3);
+}
+
 /* ---------- Bottom navigation ---------- */
 
 #navbar {

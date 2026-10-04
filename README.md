@@ -79,6 +79,12 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 Media cards are laid out in equal cells (`ceil(sqrt(n))` columns) and scaled by both
 width and height, so a mixed grid of images and live embeds always fits.
 
+Every media card carries an **enlarge button** in its bottom-right corner. It fades in when
+you point at the card (and stays visible where there is no hover). An image opens the
+lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
+so the embedded page is never copied, reloaded or moved, and it keeps its state, its input
+and its scroll position. Esc, a click outside, or the × closes it again.
+
 ## Live embeds & `livedeck-live.js`
 
 The embed is an ordinary iframe, so anything works — a simulator, a demo, a widget. For
@@ -246,6 +252,10 @@ python3 -m http.server -d _site 8080
 Evergreen browsers (Chrome, Edge, Firefox, Safari). Requires `ResizeObserver` (for live
 embeds) and standard ES2015+ DOM APIs (`Object.assign`, `Element.append`/`Element.closest`,
 `NodeList.forEach`, `String.padStart`, …).
+
+Enlarging a live embed additionally needs the Popover API (Chrome 114+, Safari 17+,
+Firefox 125+); without it those cards simply have no enlarge button. Images use the
+lightbox overlay and enlarge everywhere.
 
 ## License
 
