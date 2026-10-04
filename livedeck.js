@@ -458,10 +458,24 @@
       var cellW = (gW - (cols - 1) * colGap) / cols;
       var cellH = (gH - (rows - 1) * rowGap) / rows;
       cards.forEach(function (card) {
-        settleCaption(card.querySelector('figcaption, .caption'), cellH);
-        if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH);
-        else fitImageCard(card, cellW, cellH);
+        var cap = card.querySelector('figcaption, .caption');
+        // A caption's own size depends on how wide the card ends up, and the card's
+        // size depends on how tall the caption is. Settle it, fit the card, and — only
+        // when the caption had to move — settle it again at the width it really has:
+        // the notch belongs in the last line of the final layout, not in the line the
+        // caption happened to start out with.
+        var moved = settleCaption(cap, cellH);
+        fitCard(card, cellW, cellH);
+        if (moved) {
+          settleCaption(cap, cellH);
+          fitCard(card, cellW, cellH);
+        }
       });
+    }
+
+    function fitCard(card, cellW, cellH) {
+      if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH);
+      else fitImageCard(card, cellW, cellH);
     }
 
     // A caption is text and is never scaled with the media, but it may not eat the
@@ -469,14 +483,18 @@
     // image needs. It gets at most CAPTION_MAX of the cell, and only steps the font
     // down when it would take more — no further than CAPTION_MIN_PX, below which
     // the words stop being worth reading, so a caption that is longer still simply
-    // takes the room it needs.
+    // takes the room it needs. Returns true when either decision moved, which means
+    // the caller has to lay the card out again with the caption it now has.
     var CAPTION_MAX = 0.2, CAPTION_MIN_PX = 11;
     function settleCaption(cap, cellH) {
-      if (!cap) return;
+      if (!cap) return false;
+      var changed = false;
+      var had = cap.style.getPropertyValue('--cap-size');
       cap.style.removeProperty('--cap-size');
       var cs = getComputedStyle(cap);
       var maxH = Math.max(1, cellH * CAPTION_MAX);
       var h = cap.offsetHeight;
+      var size = 0; // 0: the stylesheet's own size is what fits
       if (h > maxH) {
         // The largest size that still fits the caption's share: the height grows
         // with the font, so halving the range a few times finds it. Only ever down
@@ -487,7 +505,13 @@
           cap.style.setProperty('--cap-size', mid + 'px');
           if (cap.offsetHeight <= maxH) lo = mid; else hi = mid;
         }
-        cap.style.setProperty('--cap-size', lo + 'px');
+        size = lo;
+      }
+      var want = size > 0 ? size + 'px' : '';
+      if (had !== want) {
+        if (want) cap.style.setProperty('--cap-size', want);
+        else cap.style.removeProperty('--cap-size');
+        changed = true;
       }
       // The enlarge button sits in the caption's bottom-right corner, so the last
       // line is the one that has to make room for it. The notch (see the stylesheet)
@@ -496,10 +520,16 @@
       // as one line or as much of the button as reaches into the text box (the
       // button's band less the caption's bottom padding — the stylesheet's
       // min-height, kept in step with this).
+      cs = getComputedStyle(cap); // the line height follows whichever size won
       var line = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 16) * 1.6;
       var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
       var content = Math.max(0, cap.clientHeight - pad); // the text's own box
-      cap.style.setProperty('--cap-notch', Math.max(0, content - Math.max(line, 24)) + 'px');
+      var notch = Math.max(0, content - Math.max(line, 24)) + 'px';
+      if (cap.style.getPropertyValue('--cap-notch') !== notch) {
+        cap.style.setProperty('--cap-notch', notch);
+        changed = true;
+      }
+      return changed;
     }
 
     // Fit a card around its media. Media are sized by layout, never by scaling
