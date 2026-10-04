@@ -450,15 +450,16 @@
     function fitLog(msg) { if (DEBUG) console.log('[livedeck fit] ' + msg); }
 
     // The ratio a card's media wants, which is all it takes to tell arrangements
-    // apart. An image that has not loaded, or an embed that has not reported yet,
-    // falls back to a square: that is a guess about the grid, never about the card.
+    // apart; 0 means it is not known yet (an image still loading, an embed that has
+    // not reported), and the caller substitutes a square, which can only mislead the
+    // choice of grid, never the card's own layout.
     function mediaRatio(card) {
       var img = card.querySelector('img');
-      if (img) return (img.naturalWidth && img.naturalHeight) ? img.naturalHeight / img.naturalWidth : 1;
+      if (img) return (img.naturalWidth && img.naturalHeight) ? img.naturalHeight / img.naturalWidth : 0;
       var frame = card.querySelector('.live-frame');
       var w = frame ? parseFloat(frame.dataset.natW) : 0;
       var h = frame ? parseFloat(frame.dataset.natH) : 0;
-      return (w && h) ? h / w : 1;
+      return (w && h) ? h / w : 0;
     }
 
     // A card keeps its media's ratio and is scaled down to fit its cell, so a cell
@@ -488,6 +489,31 @@
       return best;
     }
 
+    // The arrangement is the deck's memory of one panel. It is settled once every card's
+    // ratio is known, and after that only the room the panel offers can change it — a
+    // window resize. A card whose media changes size later (an embed that reflows, an
+    // image that finally loads) re-sizes inside its own cell: shuffling the grid under
+    // the reader is exactly the jitter this avoids.
+    function arrangeGrid(grid, n, gW, gH, colGap, rowGap, ratios) {
+      var size = gW + 'x' + gH;
+      var known = true;
+      for (var i = 0; i < n; i++) if (!(ratios[i] > 0)) known = false;
+      var remembered = grid.dataset.cols;
+      if (remembered && grid.dataset.gridSize === size && (grid.dataset.ratiosKnown === '1' || !known)) {
+        fitLog('arrangement ' + remembered + 'x' + grid.dataset.rows + ' kept for ' + size);
+        return { cols: +remembered, rows: +grid.dataset.rows };
+      }
+      var pick = chooseArrangement(n, gW, gH, colGap, rowGap, ratios.map(function (r) { return r || 1; }));
+      grid.dataset.cols = pick.cols;
+      grid.dataset.rows = pick.rows;
+      grid.dataset.gridSize = size;
+      grid.dataset.ratiosKnown = known ? '1' : '';
+      fitLog('arrangement ' + pick.cols + 'x' + pick.rows + ' for ' + size +
+        (remembered ? ' (was ' + remembered + 'x' + grid.dataset.rows + ')' : '') +
+        ' ratios ' + (known ? 'all known' : 'some unknown'));
+      return pick;
+    }
+
     function layoutMedia(panel) {
       var grid = panel.querySelector('.media-grid');
       if (!grid) return;
@@ -503,7 +529,7 @@
       var colGap = parseFloat(gcs.columnGap) || 0;
       var rowGap = parseFloat(gcs.rowGap) || 0;
       var ratios = cards.map(mediaRatio);
-      var pick = chooseArrangement(N, gW, gH, colGap, rowGap, ratios);
+      var pick = arrangeGrid(grid, N, gW, gH, colGap, rowGap, ratios);
       var cols = pick.cols, rows = pick.rows;
       grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
       grid.style.gridAutoRows = 'minmax(0, 1fr)';
@@ -549,7 +575,7 @@
     // further than CAPTION_MIN_PX, below which the words stop being worth reading —
     // and a longer caption is clipped to whole lines instead of growing. Returns
     // true when a decision moved, which the fit log reports.
-    var CAPTION_MAX = 0.2, CAPTION_MIN_PX = 11;
+    var CAPTION_MAX = 0.2, CAPTION_MIN = 0.1, CAPTION_MIN_PX = 11;
     function settleCaption(cap, cellH, tag) {
       if (!cap) return false;
       var changed = false;
@@ -558,18 +584,26 @@
       // text look like it fits, and dropping it again would undo the last settle.
       var had = cap.style.getPropertyValue('--cap-size');
       var hadMax = cap.style.getPropertyValue('--cap-max');
+      var hadMin = cap.style.getPropertyValue('--cap-min');
       cap.style.removeProperty('--cap-size');
       cap.style.removeProperty('--cap-max');
+      cap.style.removeProperty('--cap-min');
       var cs = getComputedStyle(cap);
       var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
       var share = Math.max(1, cellH * CAPTION_MAX); // of the cell, for the text alone
+      var floor = cellH * CAPTION_MIN;
       var textH = function () { return Math.max(0, cap.clientHeight - pad); };
       var h = textH();
       var size = 0; // 0: the stylesheet's own size is what fits
       if (h > share) {
-        // The largest size whose text still fits the share: the height grows with
-        // the font, so halving the range a few times finds it.
-        var lo = CAPTION_MIN_PX, hi = parseFloat(cs.fontSize) || 16;
+        // The largest size whose text still fits the share: the height grows with the
+        // font, so halving the range a few times finds it. Stepping down stops at the
+        // size whose text fills a tenth of the cell (and never below a legible 11px):
+        // a caption squeezed past that is not worth reading, and what no longer fits
+        // the share is cut by the clip below.
+        var base = parseFloat(cs.fontSize) || 16;
+        var lo = Math.min(base, Math.max(CAPTION_MIN_PX, base * floor / Math.max(1, h)));
+        var hi = base;
         for (var i = 0; i < 4 && hi - lo > 0.5; i++) {
           var mid = (lo + hi) / 2;
           cap.style.setProperty('--cap-size', mid + 'px');
@@ -590,9 +624,15 @@
       else cap.style.removeProperty('--cap-max');
       if (hadMax !== max) changed = true;
       var visible = textH(); // what the clip left of the text
-      fitLog((tag || 'caption') + ': share ' + r1(share) + ' font ' + r1(size || parseFloat(cs.fontSize)) +
-        ' text ' + r1(h) + ' -> ' + r1(visible) + ' lines ' + r1(visible / line) + ' cap ' + (max || 'none') +
-        (changed ? ' (moved)' : ''));
+      // A short caption is given the floor as a height of its own, so a caption is never
+      // a sliver of the card it belongs to. It is set after the text has been measured,
+      // or the padding box would report the floor rather than the words.
+      var min = Math.max(1, Math.round(cellH * CAPTION_MIN)) + 'px';
+      cap.style.setProperty('--cap-min', min);
+      if (hadMin !== min) changed = true;
+      fitLog((tag || 'caption') + ': share ' + r1(share) + ' floor ' + min + ' font ' +
+        r1(size || parseFloat(cs.fontSize)) + ' text ' + r1(h) + ' -> ' + r1(visible) +
+        ' lines ' + r1(visible / line) + ' cap ' + (max || 'none') + (changed ? ' (moved)' : ''));
       return changed;
     }
 
@@ -962,6 +1002,7 @@
       if (cap) {
         cap.style.removeProperty('--cap-size');
         cap.style.removeProperty('--cap-max');
+        cap.style.removeProperty('--cap-min');
       }
       card.setAttribute('popover', 'manual');
       card.classList.add('zoomed');

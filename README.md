@@ -76,20 +76,42 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
         data-caption="Shown under the frame"></iframe>
 ```
 
-Media cards are laid out in a grid whose arrangement is part of the fit: the deck tries
-every column count — 4 cards mean 1x4, 2x2 and 4x1 — and keeps the one whose cells waste
-least of each card's own aspect ratio, so the media on screen is as large as it can be. On a
-1920x444 panel four wide cards are half again as large in one row as in a 2x2 grid, while
-four tall ones on a portrait panel do want the 2x2. Only the media itself is
-sized to fit the cell — the card hugs it, so the caption is exactly as wide as the media. A
-caption is text and is never scaled with the media: it keeps the page's type size and only
-steps below it when its text would otherwise take more than a fifth of the card, which is
-what happens on a phone, where a few lines of body text are most of the room an image needs.
-A caption that is over that share even at the smallest size is clipped to whole lines rather
-than allowed to grow: on a very wide, short cell a caption that gains a line as the card
-narrows is a card the width solve can only answer by squeezing to a sliver. A live embed
-keeps its own layout size and is scaled visually, so an embedded page is never reflowed to
-fit.
+Media cards are laid out in a grid. Only the media itself is sized to fit its cell — the
+card hugs it, so the caption is exactly as wide as the media and no pale bar is left beside
+it. A caption is text and is never scaled with the media; a live embed keeps its own layout
+size and is scaled visually, so an embedded page is never reflowed to fit. The rules the
+deck holds itself to are below.
+
+### How a media panel is laid out
+
+1. **The grid arrangement is chosen, not assumed.** Every column count is a candidate — four
+   cards mean 1x4, 2x2 and 4x1; three mean 1x3, 2x2 and 3x1; two mean 2x1 and 1x2 — with the
+   fewest rows that hold the cards, and the deck keeps the one whose cells waste least of the
+   cards' own aspect ratios, so the media on screen is as large as it can be. On a 1920x444
+   panel four wide cards are half again as large in one row as in a 2x2 grid, while four tall
+   ones on a portrait panel do want the 2x2.
+2. **The arrangement is settled once, and then left alone.** It is decided from the cards'
+   ratios and the room a caption may take; a card whose media changes size later — an image
+   that finally loads, an embed that reflows or reports a new size — re-sizes inside its own
+   cell, and the grid does not shuffle under the reader. Only a change in the room the panel
+   offers (a window resize, a rotation) decides the arrangement again.
+3. **Every card gets a cell of the same size.** Inside it the media keeps its own aspect
+   ratio and, together with the caption, fills the cell as far as one of the two dimensions
+   allows; the card then hugs what came out of that, so its sides are the media's sides.
+4. **The caption's height follows its content, inside a ceiling and a floor.** Its text takes
+   at most a fifth of the card's height and, whenever the content allows, at least a tenth.
+   Inside that range the deck takes the largest font that fits the text under the ceiling,
+   never stepping down past the floor (nor below a legible 11px). A caption still over the
+   ceiling is clipped to whole lines rather than allowed to grow — on a very wide, short cell
+   a caption that gains a line as the card narrows is a card the width solve can only answer
+   by squeezing to a sliver. The caption's padding is not text, so a caption is never clipped
+   away entirely.
+5. **The caption is never covered.** It sits below the media, no line of it is shortened, and
+   nothing is laid over it: the enlarge button belongs to the media, in the media's own
+   bottom-right corner, which is the one thing that can cover a corner of the media itself.
+6. **A live embed owns its own box.** Its frame is never reflowed: the deck lays it out at
+   the size it reports and scales that box to fit. If the embed's aspect ratio changes, the
+   card re-fits around it and the grid arrangement stays as it was.
 
 Nothing has to be declared up front: an image's ratio is read from the image, an embed
 reports its own size, and a card whose media has not given the deck a size yet stays out of
@@ -99,8 +121,9 @@ fades in. `data-height` on a frame is the one thing worth writing, and only for 
 that will never report (see below).
 
 Loading the page with `?fit-debug` in the URL prints every fit to the console: the grid it
-measured, what each caption became, and each round of the width solve. That is the log to
-attach to a report like "four cards on a 1920x444 screen come out wrong".
+measured, the arrangement it kept, what each caption became, and each round of the width
+solve. That is the log to attach to a report like "four cards on a 1920x444 screen come out
+wrong".
 
 Every media card carries an **enlarge button** in the bottom-right corner of the media
 itself, so the caption below the media is never asked to make room for it. It fades in when
