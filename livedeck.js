@@ -458,9 +458,48 @@
       var cellW = (gW - (cols - 1) * colGap) / cols;
       var cellH = (gH - (rows - 1) * rowGap) / rows;
       cards.forEach(function (card) {
+        settleCaption(card.querySelector('figcaption, .caption'), cellH);
         if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH);
         else fitImageCard(card, cellW, cellH);
       });
+    }
+
+    // A caption is text and is never scaled with the media, but it may not eat the
+    // card either: on a phone a few lines of body text are most of the room the
+    // image needs. It gets at most CAPTION_MAX of the cell, and only steps the font
+    // down when it would take more — no further than CAPTION_MIN_PX, below which
+    // the words stop being worth reading, so a caption that is longer still simply
+    // takes the room it needs.
+    var CAPTION_MAX = 0.2, CAPTION_MIN_PX = 11;
+    function settleCaption(cap, cellH) {
+      if (!cap) return;
+      cap.style.removeProperty('--cap-size');
+      var cs = getComputedStyle(cap);
+      var maxH = Math.max(1, cellH * CAPTION_MAX);
+      var h = cap.offsetHeight;
+      if (h > maxH) {
+        // The largest size that still fits the caption's share: the height grows
+        // with the font, so halving the range a few times finds it. Only ever down
+        // to CAPTION_MIN_PX, below which a caption is not worth reading.
+        var lo = CAPTION_MIN_PX, hi = parseFloat(cs.fontSize) || 16;
+        for (var i = 0; i < 4 && hi - lo > 0.5; i++) {
+          var mid = (lo + hi) / 2;
+          cap.style.setProperty('--cap-size', mid + 'px');
+          if (cap.offsetHeight <= maxH) lo = mid; else hi = mid;
+        }
+        cap.style.setProperty('--cap-size', lo + 'px');
+      }
+      // The enlarge button sits in the caption's bottom-right corner, so the last
+      // line is the one that has to make room for it. The notch (see the stylesheet)
+      // is floated into that line rather than reserving a column for every line:
+      // --cap-notch puts its bottom on the text box's bottom edge, and it is as tall
+      // as one line or as much of the button as reaches into the text box (the
+      // button's band less the caption's bottom padding — the stylesheet's
+      // min-height, kept in step with this).
+      var line = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 16) * 1.6;
+      var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      var content = Math.max(0, cap.clientHeight - pad); // the text's own box
+      cap.style.setProperty('--cap-notch', Math.max(0, content - Math.max(line, 24)) + 'px');
     }
 
     // Fit a card around its media. Media are sized by layout, never by scaling
@@ -810,6 +849,11 @@
       // every size on the way out (fitLiveCard re-sets all of them).
       card.style.width = card.style.height = '';
       card.style.transform = '';
+      // The enlargement has room for the caption at its normal size, and no button
+      // to make room for, so the caption's own fit is dropped here (zoomClosed()
+      // re-fits the card in the grid, which settles both again).
+      var cap = card.querySelector('.caption');
+      if (cap) { cap.style.removeProperty('--cap-size'); cap.style.removeProperty('--cap-notch'); }
       card.setAttribute('popover', 'manual');
       card.classList.add('zoomed');
       zoomed = card;

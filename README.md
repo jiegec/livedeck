@@ -77,9 +77,12 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 ```
 
 Media cards are laid out in equal cells (`ceil(sqrt(n))` columns). Only the media itself is
-sized to fit the cell — the card hugs it, so the caption is exactly as wide as the media and
-keeps the page's normal type size however far the media has to shrink. A live embed keeps
-its own layout size and is scaled visually, so an embedded page is never reflowed to fit.
+sized to fit the cell — the card hugs it, so the caption is exactly as wide as the media. A
+caption is text and is never scaled with the media: it keeps the page's type size and only
+steps below it when it would otherwise take more than a fifth of the card, which is what
+happens on a phone, where a few lines of body text are most of the room an image needs. A
+live embed keeps its own layout size and is scaled visually, so an embedded page is never
+reflowed to fit.
 
 Nothing has to be declared up front: an image's ratio is read from the image, an embed
 reports its own size, and a card whose media has not given the deck a size yet stays out of
@@ -89,11 +92,13 @@ fades in. `data-height` on a frame is the one thing worth writing, and only for 
 that will never report (see below).
 
 Every media card carries an **enlarge button** in its bottom-right corner. It fades in when
-you point at the card (and stays visible where there is no hover). An image opens the
-lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
-so the embedded page is never copied, reloaded or moved, and it keeps its state, its input
-and its scroll position. Either way the media is scaled up as far as its own aspect ratio
-allows and the box around it follows that size, so no black bars are left over. Esc, a
+you point at the card (and stays visible where there is no hover). Only the caption lines it
+is level with make room for it — the deck floats a notch into that row — so a caption keeps
+the full card width above the button instead of losing a column all the way down. An image
+opens the lightbox overlay; a live embed is enlarged by promoting its card to the top layer
+instead, so the embedded page is never copied, reloaded or moved, and it keeps its state, its
+input and its scroll position. Either way the media is scaled up as far as its own aspect
+ratio allows and the box around it follows that size, so no black bars are left over. Esc, a
 click outside, or the × closes it again.
 
 ## Live embeds & `livedeck-live.js`

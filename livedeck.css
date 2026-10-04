@@ -248,7 +248,10 @@ body {
 
 .caption,
 .media-card figcaption {
-  font-size: 16px;
+  /* --cap-size is set by the deck when the caption has to step down to stay inside
+     its share of the card (see settleCaption); the stylesheet's own size applies
+     whenever it does not. */
+  font-size: var(--cap-size, 16px);
   color: #4b5563;
   line-height: 1.6;
   padding: 12px 16px;
@@ -446,10 +449,22 @@ body {
   }
 }
 
-/* Room for the button, so it never covers caption text. */
-.media-card .caption,
-.media-card figcaption {
-  padding-right: 48px;
+/* Room for the button, so it never covers caption text. A float shortens only the
+   lines it is level with, so the deck floats an empty notch into the button's row
+   instead of reserving a column down the whole caption: --cap-notch is the
+   distance from the caption's top to that row, measured by settleCaption(). The
+   width is the part of the button that reaches into the caption's padding box, and
+   the height is one line (never less than the button needs, so a browser without
+   `lh` still clears it) — the row it lands in is shortened, the lines above it are
+   not. */
+.media-card .caption::before,
+.media-card figcaption::before {
+  content: '';
+  float: right;
+  width: 26px;
+  height: 1lh;
+  min-height: 24px;
+  margin-top: var(--cap-notch, 0px);
 }
 
 .media-close {
@@ -523,6 +538,11 @@ body {
   color: #e2e8f0;
   background: #0b0e18;
   border-top: 1px solid rgba(255, 255, 255, .14);
+}
+
+/* Nothing to make room for once the card is enlarged: the button is gone. */
+.media-card.live-card.zoomed .caption::before {
+  content: none;
 }
 
 .media-card.live-card.zoomed .media-zoom {
