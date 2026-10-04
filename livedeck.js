@@ -121,8 +121,13 @@
   var renderers = {
     img: function (m) {
       var alt = m.alt != null ? m.alt : m.caption;
+      // The image gets a box of its own: the enlarge button is positioned inside it,
+      // in the media's bottom-right corner, so the caption below is never asked to
+      // make room for the button.
       return '<figure class="media-card image-card">' +
+        '<div class="media-box">' +
         '<img src="' + escAttr(m.src) + '" alt="' + escAttr(alt) + '" loading="eager" decoding="async">' +
+        '</div>' +
         (m.caption ? '<figcaption>' + escHtml(m.caption) + '</figcaption>' : '') +
         '</figure>';
     },
@@ -469,23 +474,27 @@
         var cap = card.querySelector('figcaption, .caption');
         var tag = 'card ' + (i + 1) + '/' + N + ' ' + (card.classList.contains('live-card') ? 'live' : 'image');
         // A caption's own size depends on how wide the card ends up, and the card's
-        // size depends on how tall the caption is. Settle the caption, fit the card,
-        // and go round again while the caption still has something to move: the notch
-        // belongs in the last line of the *final* layout, not in the line the caption
-        // happened to start out with. Two rounds are the usual case; the cap on the
-        // caption is what stops the rounds from chasing each other for good.
+        // size depends on how tall the caption is, so the two are settled together:
+        // settle the caption, fit the card, and go round again until a fit reproduces
+        // the width its caption was settled for. Two rounds are the usual case; the
+        // cap on the caption is what stops the rounds from chasing each other.
+        var lastW = -1;
         for (var pass = 1; pass <= 4; pass++) {
-          var moved = settleCaption(cap, cellH, tag + ' p' + pass);
-          fitCard(card, cellW, cellH, tag + ' p' + pass);
-          if (!moved) break;
+          settleCaption(cap, cellH, tag + ' p' + pass);
+          var w = fitCard(card, cellW, cellH, tag + ' p' + pass);
+          if (w === lastW) break;
+          lastW = w;
         }
       });
       fitLog('grid done');
     }
 
+    // Returns the width the card settled on, which is what tells the caller whether
+    // the caption it just settled was settled for the right width.
     function fitCard(card, cellW, cellH, tag) {
       if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH, tag);
       else fitImageCard(card, cellW, cellH, tag);
+      return card.offsetWidth;
     }
 
     // A caption is text and is never scaled with the media, but it may not eat the
@@ -497,8 +506,7 @@
     // CAPTION_MAX of the cell (its padding is not text), the font steps down — no
     // further than CAPTION_MIN_PX, below which the words stop being worth reading —
     // and a longer caption is clipped to whole lines instead of growing. Returns
-    // true when a decision moved, which means the caller has to lay the card out
-    // again with the caption it now has.
+    // true when a decision moved, which the fit log reports.
     var CAPTION_MAX = 0.2, CAPTION_MIN_PX = 11;
     function settleCaption(cap, cellH, tag) {
       if (!cap) return false;
@@ -539,22 +547,10 @@
       if (max) cap.style.setProperty('--cap-max', max);
       else cap.style.removeProperty('--cap-max');
       if (hadMax !== max) changed = true;
-      // The enlarge button sits in the caption's bottom-right corner, so the last
-      // line is the one that has to make room for it. The notch (see the stylesheet)
-      // is floated into that line rather than reserving a column for every line:
-      // --cap-notch puts its bottom on the text box's bottom edge, and it is as tall
-      // as one line or as much of the button as reaches into the text box (the
-      // button's band less the caption's bottom padding — the stylesheet's
-      // min-height, kept in step with this).
       var visible = textH(); // what the clip left of the text
-      var notch = Math.max(0, visible - Math.max(line, 24)) + 'px';
-      if (cap.style.getPropertyValue('--cap-notch') !== notch) {
-        cap.style.setProperty('--cap-notch', notch);
-        changed = true;
-      }
       fitLog((tag || 'caption') + ': share ' + r1(share) + ' font ' + r1(size || parseFloat(cs.fontSize)) +
         ' text ' + r1(h) + ' -> ' + r1(visible) + ' lines ' + r1(visible / line) + ' cap ' + (max || 'none') +
-        ' notch ' + notch + (changed ? ' (moved)' : ''));
+        (changed ? ' (moved)' : ''));
       return changed;
     }
 
@@ -924,7 +920,6 @@
       if (cap) {
         cap.style.removeProperty('--cap-size');
         cap.style.removeProperty('--cap-max');
-        cap.style.removeProperty('--cap-notch');
       }
       card.setAttribute('popover', 'manual');
       card.classList.add('zoomed');
@@ -965,6 +960,18 @@
       e.stopPropagation();
     }, true);
 
+    // Both buttons live inside the media's own box, in its bottom-right corner: the
+    // caption below the media then never has to make room for them, which is what
+    // used to cost it a column the whole way down (or a notch in its last line).
+    // Markup the deck did not render has no such box, so it falls back to the card
+    // itself, where a <figcaption> still has to stay last.
+    function addToMedia(card, el) {
+      var box = card.querySelector('.media-box, .live-wrap');
+      if (box) { box.appendChild(el); return; }
+      var cap = card.querySelector('figcaption, .caption');
+      if (cap) card.insertBefore(el, cap); else card.appendChild(el);
+    }
+
     function addZoom(card) {
       var live = !!card.querySelector('.live-frame');
       if ((!live && !card.querySelector('img')) || card.querySelector('.media-zoom')) return;
@@ -980,9 +987,7 @@
         e.stopPropagation(); // an image card opens its lightbox on click as well
         if (live) openZoom(card); else openImageLightbox(card);
       });
-      // First child: a <figcaption> has to stay the figure's last child, and the
-      // button is absolutely positioned, so DOM order says nothing visually.
-      card.insertBefore(btn, card.firstChild);
+      addToMedia(card, btn);
       if (!live) return;
       var close = doc.createElement('button');
       close.type = 'button';
@@ -991,7 +996,7 @@
       close.setAttribute('aria-label', T.closeTitle);
       close.textContent = '×';
       on(close, 'click', function (e) { e.preventDefault(); e.stopPropagation(); closeZoom(); });
-      card.insertBefore(close, card.firstChild);
+      addToMedia(card, close);
       // Nothing else is expected to close the popover (it is 'manual'), but if
       // something does, beforetoggle is the synchronous hook for the clean-up
       // and toggle the safety net behind it.

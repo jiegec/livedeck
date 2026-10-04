@@ -98,14 +98,13 @@ Loading the page with `?fit-debug` in the URL prints every fit to the console: t
 measured, what each caption became, and each round of the width solve. That is the log to
 attach to a report like "four cards on a 1920x444 screen come out wrong".
 
-Every media card carries an **enlarge button** in its bottom-right corner. It fades in when
-you point at the card (and stays visible where there is no hover). Only the caption lines it
-is level with make room for it — the deck floats a notch into that row — so a caption keeps
-the full card width above the button instead of losing a column all the way down. An image
-opens the lightbox overlay; a live embed is enlarged by promoting its card to the top layer
-instead, so the embedded page is never copied, reloaded or moved, and it keeps its state, its
-input and its scroll position. Either way the media is scaled up as far as its own aspect
-ratio allows and the box around it follows that size, so no black bars are left over. Esc, a
+Every media card carries an **enlarge button** in the bottom-right corner of the media
+itself, so the caption below the media is never asked to make room for it. It fades in when
+you point at the card (and stays visible where there is no hover). An image opens the
+lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
+so the embedded page is never copied, reloaded or moved, and it keeps its state, its input
+and its scroll position. Either way the media is scaled up as far as its own aspect ratio
+allows and the box around it follows that size, so no black bars are left over. Esc, a
 click outside, or the × closes it again.
 
 ## Live embeds & `livedeck-live.js`

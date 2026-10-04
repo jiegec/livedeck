@@ -226,6 +226,14 @@ body {
   background: #fff;
 }
 
+/* The image's own box, so the enlarge button can sit in the media's bottom-right
+   corner rather than over the caption. It hugs the image: both are sized by the fit. */
+.media-box {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
 .media-card.live-card {
   overflow: hidden;
 }
@@ -452,24 +460,6 @@ body {
   }
 }
 
-/* Room for the button, so it never covers caption text. A float shortens only the
-   lines it is level with, so the deck floats an empty notch into the button's row
-   instead of reserving a column down the whole caption: --cap-notch is the
-   distance from the caption's top to that row, measured by settleCaption(). The
-   width is the part of the button that reaches into the caption's padding box, and
-   the height is one line (never less than the button needs, so a browser without
-   `lh` still clears it) — the row it lands in is shortened, the lines above it are
-   not. */
-.media-card .caption::before,
-.media-card figcaption::before {
-  content: '';
-  float: right;
-  width: 26px;
-  height: 1lh;
-  min-height: 24px;
-  margin-top: var(--cap-notch, 0px);
-}
-
 .media-close {
   display: none;
 }
@@ -544,11 +534,7 @@ body {
   border-top: 1px solid rgba(255, 255, 255, .14);
 }
 
-/* Nothing to make room for once the card is enlarged: the button is gone. */
-.media-card.live-card.zoomed .caption::before {
-  content: none;
-}
-
+/* Nothing to make room for: the button is not shown on an enlarged card. */
 .media-card.live-card.zoomed .media-zoom {
   display: none;
 }
