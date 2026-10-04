@@ -3,8 +3,9 @@
  *  It reports the page size to the parent deck so the deck can lay the embed
  *  out at its natural size and scale it to fit.
  *
- *  Contract with LiveDeck: postMessage({ type: 'resize', id, width, height })
- *  where `id` matches the iframe's data-live-id (passed as ?liveId= in the URL).
+ *  Contract with LiveDeck: postMessage({ type: 'resize', id, width, height }).
+ *  The deck ties a report to the card it came from by looking at the sending
+ *  window, so `id` is only a hint and the deck never has to put one in the URL.
  *  MIT licensed.
  */
 (function (root, factory) {
@@ -19,14 +20,17 @@
 
   var VERSION = '0.1.0';
 
-  /* Resolve the id: ?liveId=... wins, then an explicit fallback,
-   * then the file name (so the page also works when opened alone). */
+  /* Resolve the id: ?liveId=... wins, then the frame's name — the deck names
+   * every embed from its data-live-id, so the id can reach this page without
+   * the URL being rewritten — then an explicit fallback, then the file name
+   * (so the page also works when opened alone). */
   function id(fallback) {
     var q = null;
     try {
       q = new URLSearchParams(location.search).get('liveId');
     } catch (e) { /* very old browsers */ }
     if (q) return q;
+    if (window.parent !== window && window.name) return window.name;
     if (fallback) return fallback;
     return (location.pathname.split('/').pop() || 'live').replace(/\.html$/, '');
   }

@@ -116,32 +116,6 @@
    * Each renderer is (media, T) => HTML string. Override or add your own
    * via `options.renderers`.
    * ================================================================== */
-  // Does a URL's query (without the "?") already carry a liveId parameter?
-  // URLSearchParams reads the parameter names, so a "liveId=…" that merely sits
-  // inside another value — or in the #fragment — doesn't count.
-  function hasLiveId(query) {
-    if (!query) return false;
-    if (typeof URLSearchParams === 'function') return new URLSearchParams(query).has('liveId');
-    return /(^|&)liveId(=|&|$)/.test(query); // very old browsers
-  }
-
-  // Pass the embed's unique id through the URL so the same page can be embedded
-  // several times (each with its own data-live-id). Only the query is edited and
-  // it stays before the #fragment, which is also where it has to sit for the
-  // embed to see it in location.search. new URL() is deliberately not used here:
-  // it needs a base and would rewrite the author's (relative) src into an
-  // absolute, normalised URL.
-  function withLiveId(src, liveId) {
-    src = String(src == null ? '' : src);
-    if (!src || !liveId) return src;
-    var hash = src.indexOf('#'); // a fragment starts at the first "#"
-    var base = hash === -1 ? src : src.slice(0, hash);
-    var frag = hash === -1 ? '' : src.slice(hash);
-    var mark = base.indexOf('?');
-    if (hasLiveId(mark === -1 ? '' : base.slice(mark + 1))) return src;
-    return base + (mark === -1 ? '?' : '&') + 'liveId=' + encodeURIComponent(liveId) + frag;
-  }
-
   var renderers = {
     img: function (m) {
       var alt = m.alt != null ? m.alt : m.caption;
@@ -153,11 +127,17 @@
     live: function (m) {
       var h = parseInt(m.height, 10) || 420;
       var liveId = m.liveId == null ? '' : String(m.liveId);
-      var liveSrc = withLiveId(m.src, liveId);
+      // The src is emitted exactly as the author wrote it: the deck hands the id
+      // to the embed through the frame's name (window.name, readable by the child
+      // at any origin) instead of rewriting the URL. A frame without an id is
+      // fine too — the deck still ties its report to the card by window.
+      var ident = liveId
+        ? ' id="' + escAttr(liveId) + '" name="' + escAttr(liveId) + '" data-live-id="' + escAttr(liveId) + '"'
+        : '';
       return '<div class="media-card live-card">' +
         '<div class="live-wrap">' +
-        '<iframe id="' + escAttr(liveId) + '" class="live-frame" data-live-id="' + escAttr(liveId) + '"' +
-        ' src="' + escAttr(liveSrc) + '" scrolling="no" loading="eager" height="' + escAttr(h) + '"' +
+        '<iframe' + ident + ' class="live-frame"' +
+        ' src="' + escAttr(m.src) + '" scrolling="no" loading="eager" height="' + escAttr(h) + '"' +
         ' title="' + escAttr(m.caption || liveId) + '"' +
         ' style="width:100%;height:' + h + 'px;border:0;"></iframe>' +
         '</div>' +
@@ -569,12 +549,26 @@
     }
 
     /* ---------- live iframe auto height ---------- */
+    // Which card did this message come from? The sender's window is the only
+    // thing an embed cannot get wrong, so match on that alone whenever it is
+    // available — an embed never has to learn its own id, and the deck never
+    // has to put one in the URL. The id in the payload stays supported as a
+    // hint for a sender we cannot tie to a window.
+    function liveFrameFrom(source, id) {
+      var frames = deck.querySelectorAll('iframe.live-frame');
+      var byId = null;
+      for (var i = 0; i < frames.length; i++) {
+        if (source && frames[i].contentWindow === source) return frames[i];
+        if (!byId && id && frames[i].id === id) byId = frames[i];
+      }
+      // Never trust an id that came with a window we don't own.
+      return source ? null : byId;
+    }
+
     on(window, 'message', function (e) {
-      if (!e.data || e.data.type !== 'resize' || !e.data.id || !e.data.height) return;
-      var frame = doc.getElementById(e.data.id);
-      if (!frame || frame.tagName !== 'IFRAME' || !frame.classList.contains('live-frame')) return;
-      // Only trust messages that actually came from this embed.
-      if (e.source && frame.contentWindow !== e.source) return;
+      if (!e.data || e.data.type !== 'resize' || !e.data.height) return;
+      var frame = liveFrameFrom(e.source, e.data.id);
+      if (!frame) return;
       if (e.data.width) { frame.dataset.natW = e.data.width; frame.style.width = e.data.width + 'px'; }
       frame.dataset.natH = e.data.height;
       frame.style.height = e.data.height + 'px';
