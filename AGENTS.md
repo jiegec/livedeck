@@ -36,9 +36,10 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
    *width* pins has whatever the media does not use: the caption keeps the size its words
    want and the media keeps the size its ratio wants, so neither pays for the other. Under
    the ceiling the height is the font's own — a short caption is exactly as tall as its
-   words, never padded out to fill a share. The text is never clipped: the caption's own
-   padding gives way first, and the font steps down into what is left, with no floor under
-   it, so the ceiling always holds and the caption's whole box stays inside it.
+   words, never padded out to fill a share. The text is never clipped: the padding is a share
+   of the font, exactly the proportion the theme gives it, so text and padding come down
+   together and the caption keeps its shape. The font steps down until the caption's whole box
+   fits the ceiling — no floor under it — so the ceiling always holds.
 5. **The caption is never covered.** It sits below the media, no line of it is shortened, and
    nothing is laid over it: the enlarge button belongs to the media, in the media's own
    bottom-right corner, which is the one thing that can cover a corner of the media itself.
@@ -52,7 +53,7 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   up with, and the card's size depends on how tall the caption is. `layoutMedia()` therefore
   runs `settleCaption()` and `fitCard()` round and round (six rounds at most) until a fit
   reproduces the width its caption was settled for. Two rounds are the usual case; the bound
-  is a backstop, and because the caption's box is bounded by its share the layout stays inside
+  is a backstop, and because the caption's box is bounded by its ceiling the layout stays inside
   the cell even where the rounds do not fully settle.
 * **`captionCeiling()` says how tall a caption may be.** It compares the cell's width times
   the media's ratio — the height the media would want at full width — with the cell, less
@@ -61,11 +62,14 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   caption gets everything the media leaves. The ratio's unknown case takes the tight one.
 * **`settleCaption()` decides the caption from its own text**, with `--cap-size` and the
   padding it set last time reset first: what the last settle left must not colour the
-  measurement. It gives the padding whatever the ceiling has left after the text at the
-  stylesheet's size — scaling the theme's on all four sides, and only as far as it has to —
-  and then binary-searches the largest font that fits what remains, with no floor under the
-  search, so the ceiling always holds. A caption shorter than the ceiling keeps the height
-  its words need: padding one out to fill a share leaves a gap that reads as a mistake.
+  measurement. It rewrites the theme's padding as a share of the font size — the proportion
+  the theme itself uses, all four sides — so the padding follows `--cap-size` instead of being
+  spent on its own: a large font in a box with no room around it looks like a mistake just as
+  a gap above the media does, and padding outside the ceiling would narrow the card by exactly
+  that much. It then binary-searches the largest font whose whole box fits the ceiling, with no
+  floor under the search, so the ceiling always holds. A caption shorter than the ceiling keeps
+  the height its words need: padding one out to fill a share leaves a gap that reads as a
+  mistake.
 * **`fitCardWidth()` sizes the media, never the card.** The card hugs it, so the caption is
   exactly as wide as the media and no pale bar appears beside it. `room = cellH - caption`
   and the media takes `min(cellW, room / ratio)`, so it is as large as the cell allows in one

@@ -553,7 +553,7 @@
         var ceiling = captionCeiling(card, cellW, cellH);
         var lastW = -1;
         for (var pass = 1; pass <= 6; pass++) {
-          settleCaption(cap, cellH, ceiling, tag + ' p' + pass);
+          settleCaption(cap, ceiling, tag + ' p' + pass);
           var w = fitCard(card, cellW, cellH, tag + ' p' + pass);
           if (w === lastW) break;
           lastW = w;
@@ -583,19 +583,25 @@
       return full > cellH - share ? share : Math.max(share, cellH - full);
     }
 
-    // A caption is text and is never scaled with the media, but it may not eat the
-    // card either: on a phone a few lines of body text are most of the room the
-    // image needs, and on a very wide, short cell (1920x444 with four cards) a
-    // caption that keeps gaining a line as the card narrows is what the width solve
-    // below cannot satisfy — it chases the caption down and collapses the card into
-    // a column that overflows the cell. So the caption's *text* gets at most
-    // the ceiling captionCeiling() worked out (see there) and the font steps down until
-    // it fits, with no floor under it: a caption too small to read is still better than
-    // one that is cut off. The text is never clipped — the caption's own padding gives
-    // way first — and the whole box is what the card is laid out around. Returns true
-    // when a decision moved, which the fit log reports.
+    // A caption is text and is never scaled with the media, but it may not eat the card
+    // either: on a phone a few lines of body text are most of the room the image needs,
+    // and on a very wide, short cell (1920x444 with four cards) a caption that keeps
+    // gaining a line as the card narrows is what the width solve below cannot satisfy —
+    // it chases the caption down and collapses the card into a column that overflows the
+    // cell. So the caption's whole box — text and padding — gets at most the ceiling
+    // captionCeiling() worked out (see there), and the font steps down until it fits, with
+    // no floor under it: a caption too small to read is still better than one that is cut
+    // off.
+    //
+    // The padding is never spent on its own. It is written as a share of the font size —
+    // the proportion the theme itself gives it — so text and padding come down together
+    // and the caption keeps its shape. Sacrificing the padding first would leave a large
+    // font in a box with no room around it, which reads as a mistake; and it would ride on
+    // top of the ceiling, narrowing the card by exactly that much and feeding the wrap
+    // count back into the width solve. Returns true when a decision moved, which the fit
+    // log reports.
     var CAPTION_MAX = 0.2;
-    function settleCaption(cap, cellH, ceiling, tag) {
+    function settleCaption(cap, ceiling, tag) {
       if (!cap) return false;
       var changed = false;
       // Everything is decided from the caption's own text, so neither the size nor the
@@ -606,38 +612,21 @@
       cap.style.padding = '';
       cap.style.maxHeight = ''; // an enlarged card's scroll band does not belong here
       var cs = getComputedStyle(cap);
-      var padTop = parseFloat(cs.paddingTop) || 0, padBottom = parseFloat(cs.paddingBottom) || 0;
-      var padLeft = parseFloat(cs.paddingLeft) || 0, padRight = parseFloat(cs.paddingRight) || 0;
-      // The padding gives way first, and only as far as it has to: it takes whatever the
-      // ceiling has left after the text at the size the stylesheet gives it, so a caption
-      // that fits keeps its font and a cell too short for furniture is not dominated by it.
-      // What is left of the ceiling is what the text may take, so the caption's whole box —
-      // text and padding — stays inside it, which is the number the card is laid out around.
-      var themePad = padTop + padBottom;
-      var natural = Math.max(0, cap.clientHeight - themePad); // text at the stylesheet's size
-      var scale = Math.min(1, Math.max(0, ceiling - natural) / Math.max(1, themePad));
-      var r2 = function (x) { return Math.round(x * 100) / 100; };
-      var padStyle = scale < 1
-        ? r2(padTop * scale) + 'px ' + r2(padRight * scale) + 'px ' +
-          r2(padBottom * scale) + 'px ' + r2(padLeft * scale) + 'px'
-        : '';
-      if (padStyle) cap.style.padding = padStyle;
+      var base = parseFloat(cs.fontSize) || 16;
+      var em = function (v) { return Math.round(100 * (parseFloat(v) || 0) / base) / 100 + 'em'; };
+      var padStyle = [em(cs.paddingTop), em(cs.paddingRight), em(cs.paddingBottom), em(cs.paddingLeft)].join(' ');
+      cap.style.padding = padStyle;
       if (hadPad !== padStyle) changed = true;
-      cs = getComputedStyle(cap);
-      var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-      var share = Math.max(1, ceiling - pad); // for the text; the padding is inside too
-      var textH = function () { return Math.max(0, cap.clientHeight - pad); };
-      var h = textH();
       var size = 0; // 0: the stylesheet's own size is what fits
-      if (h > share) {
-        // The largest size whose text still fits the share, found by halving the range.
-        // There is no floor under it: the text is never clipped, so a caption that will
-        // not fit any other way is allowed to become unreadably small.
-        var lo = 0.5, hi = parseFloat(cs.fontSize) || 16;
-        for (var i = 0; i < 6 && hi - lo > 0.5; i++) {
+      if (cap.offsetHeight > ceiling) {
+        // The largest size whose whole box still fits, found by halving the range. There is
+        // no floor under it, and the text is never clipped, so a caption that will not fit
+        // any other way is allowed to become unreadably small.
+        var lo = 0.5, hi = base;
+        for (var i = 0; i < 8 && hi - lo > 0.5; i++) {
           var mid = (lo + hi) / 2;
           cap.style.setProperty('--cap-size', mid + 'px');
-          if (textH() <= share) lo = mid; else hi = mid;
+          if (cap.offsetHeight <= ceiling) lo = mid; else hi = mid;
         }
         size = lo;
       }
@@ -645,9 +634,8 @@
       if (want) cap.style.setProperty('--cap-size', want);
       else cap.style.removeProperty('--cap-size');
       if (had !== want) changed = true;
-      fitLog((tag || 'caption') + ': share ' + r1(share) + ' font ' +
-        r1(size || parseFloat(cs.fontSize)) + ' text ' + r1(h) + ' -> ' + r1(textH()) +
-        ' padding ' + (padStyle || 'theme') + (changed ? ' (moved)' : ''));
+      fitLog((tag || 'caption') + ': ceiling ' + r1(ceiling) + ' font ' + r1(size || base) +
+        ' box ' + r1(cap.offsetHeight) + ' padding ' + padStyle + (changed ? ' (moved)' : ''));
       return changed;
     }
 
