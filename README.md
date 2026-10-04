@@ -76,16 +76,20 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
         data-caption="Shown under the frame"></iframe>
 ```
 
-Media cards are laid out in equal cells (`ceil(sqrt(n))` columns). Only the media itself is
+Media cards are laid out in a grid whose arrangement is part of the fit: the deck tries
+every column count — 4 cards mean 1x4, 2x2 and 4x1 — and keeps the one whose cells waste
+least of each card's own aspect ratio, so the media on screen is as large as it can be. On a
+1920x444 panel four wide cards are half again as large in one row as in a 2x2 grid, while
+four tall ones on a portrait panel do want the 2x2. Only the media itself is
 sized to fit the cell — the card hugs it, so the caption is exactly as wide as the media. A
 caption is text and is never scaled with the media: it keeps the page's type size and only
 steps below it when its text would otherwise take more than a fifth of the card, which is
 what happens on a phone, where a few lines of body text are most of the room an image needs.
 A caption that is over that share even at the smallest size is clipped to whole lines rather
-than allowed to grow: on a very wide, short cell — 1920x444 with four cards — a caption that
-gains a line as the card narrows is a card the width solve can only answer by squeezing to a
-sliver. A live embed keeps its own layout size and is scaled visually, so an embedded page is
-never reflowed to fit.
+than allowed to grow: on a very wide, short cell a caption that gains a line as the card
+narrows is a card the width solve can only answer by squeezing to a sliver. A live embed
+keeps its own layout size and is scaled visually, so an embedded page is never reflowed to
+fit.
 
 Nothing has to be declared up front: an image's ratio is read from the image, an embed
 reports its own size, and a card whose media has not given the deck a size yet stays out of

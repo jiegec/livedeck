@@ -448,28 +448,70 @@
     var DEBUG = /[?&]fit-debug/.test(location.search);
     function r1(x) { return Math.round(x * 10) / 10; }
     function fitLog(msg) { if (DEBUG) console.log('[livedeck fit] ' + msg); }
+
+    // The ratio a card's media wants, which is all it takes to tell arrangements
+    // apart. An image that has not loaded, or an embed that has not reported yet,
+    // falls back to a square: that is a guess about the grid, never about the card.
+    function mediaRatio(card) {
+      var img = card.querySelector('img');
+      if (img) return (img.naturalWidth && img.naturalHeight) ? img.naturalHeight / img.naturalWidth : 1;
+      var frame = card.querySelector('.live-frame');
+      var w = frame ? parseFloat(frame.dataset.natW) : 0;
+      var h = frame ? parseFloat(frame.dataset.natH) : 0;
+      return (w && h) ? h / w : 1;
+    }
+
+    // A card keeps its media's ratio and is scaled down to fit its cell, so a cell
+    // wider than the media wants wastes width and a taller one wastes height. The
+    // arrangement whose cells waste least shows the most media, and a fixed
+    // ceil(sqrt(n)) grid is not always it: on a 1920x444 panel, four wide cards are
+    // half again as large in one row as in two, while four tall ones on a portrait
+    // panel want the 2x2. Every column count is tried; the rows are the fewest that
+    // hold the cards, so 4 cards mean 1x4, 2x2 or 4x1 and 3 cards mean 1x3, 2x2 or
+    // 3x1. Ties keep the first (fewest columns), so the choice is deterministic.
+    function chooseArrangement(n, gW, gH, colGap, rowGap, ratios) {
+      var fallback = Math.max(1, Math.ceil(Math.sqrt(n)));
+      var best = { cols: fallback, rows: Math.ceil(n / fallback), area: -1 };
+      for (var cols = 1; cols <= n; cols++) {
+        var rows = Math.ceil(n / cols);
+        var cellW = (gW - (cols - 1) * colGap) / cols;
+        var cellH = (gH - (rows - 1) * rowGap) / rows;
+        if (!(cellW > 0) || !(cellH > 0)) continue;
+        var room = cellH * (1 - CAPTION_MAX); // the caption's share is not media
+        var area = 0;
+        for (var i = 0; i < n; i++) {
+          var w = Math.min(cellW, room / ratios[i]);
+          area += w * w * ratios[i];
+        }
+        if (area > best.area) { best.cols = cols; best.rows = rows; best.area = area; }
+      }
+      return best;
+    }
+
     function layoutMedia(panel) {
       var grid = panel.querySelector('.media-grid');
       if (!grid) return;
       var cards = Array.prototype.slice.call(grid.querySelectorAll('.media-card'));
       var N = cards.length;
       if (!N) return;
-      var cols = Math.max(1, Math.ceil(Math.sqrt(N))); // 5 -> 3x2, 3 -> 2x2, 2 -> 2x1
-      var rows = Math.ceil(N / cols);
-      grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
-      grid.style.gridAutoRows = 'minmax(0, 1fr)';
-      // Measured and fitted here, in the caller's frame: the grid's own size does
-      // not depend on the template set above, and a step that is switched to and
-      // then fitted a frame later is a step whose media is painted twice.
+      // Measured and fitted here, in the caller's frame: the grid's own size does not
+      // depend on the template set below, and a step that is switched to and then
+      // fitted a frame later is a step whose media is painted twice.
       var gW = grid.clientWidth, gH = grid.clientHeight;
       if (!gW || !gH) return;
       var gcs = getComputedStyle(grid);
       var colGap = parseFloat(gcs.columnGap) || 0;
       var rowGap = parseFloat(gcs.rowGap) || 0;
+      var ratios = cards.map(mediaRatio);
+      var pick = chooseArrangement(N, gW, gH, colGap, rowGap, ratios);
+      var cols = pick.cols, rows = pick.rows;
+      grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+      grid.style.gridAutoRows = 'minmax(0, 1fr)';
       var cellW = (gW - (cols - 1) * colGap) / cols;
       var cellH = (gH - (rows - 1) * rowGap) / rows;
-      fitLog('grid ' + gW + 'x' + gH + ' cells ' + cols + 'x' + rows + ' gap ' + colGap + '/' + rowGap +
-        ' cell ' + r1(cellW) + 'x' + r1(cellH) + ' cards ' + N);
+      fitLog('grid ' + gW + 'x' + gH + ' gap ' + colGap + '/' + rowGap + ' cards ' + N +
+        ' ratios ' + ratios.map(r1).join('/') + ' -> ' + cols + 'x' + rows +
+        ' cell ' + r1(cellW) + 'x' + r1(cellH) + ' area ' + Math.round(pick.area));
       cards.forEach(function (card, i) {
         var cap = card.querySelector('figcaption, .caption');
         var tag = 'card ' + (i + 1) + '/' + N + ' ' + (card.classList.contains('live-card') ? 'live' : 'image');
