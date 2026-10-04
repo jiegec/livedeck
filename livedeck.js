@@ -551,7 +551,7 @@
         // the width its caption was settled for. Two rounds are the usual case; the
         // cap on the caption is what stops the rounds from chasing each other.
         var lastW = -1;
-        for (var pass = 1; pass <= 4; pass++) {
+        for (var pass = 1; pass <= 6; pass++) {
           settleCaption(cap, cellH, tag + ' p' + pass);
           var w = fitCard(card, cellW, cellH, tag + ' p' + pass);
           if (w === lastW) break;
@@ -575,11 +575,12 @@
     // caption that keeps gaining a line as the card narrows is what the width solve
     // below cannot satisfy — it chases the caption down and collapses the card into
     // a column that overflows the cell. So the caption's *text* gets at most
-    // CAPTION_MAX of the cell (its padding is not text), the font steps down — no
-    // further than CAPTION_MIN_PX, below which the words stop being worth reading —
-    // and a longer caption is clipped to whole lines instead of growing. Returns
-    // true when a decision moved, which the fit log reports.
-    var CAPTION_MAX = 0.2, CAPTION_MIN_PX = 11;
+    // CAPTION_MAX of the cell (its padding is not text) and the font steps down until
+    // it fits, with no floor under it: a caption too small to read is still better
+    // than one that hangs out of the card. A caption that is over the ceiling all the
+    // same is clipped to whole lines rather than allowed to grow. Returns true when a
+    // decision moved, which the fit log reports.
+    var CAPTION_MAX = 0.2;
     function settleCaption(cap, cellH, tag) {
       if (!cap) return false;
       var changed = false;
@@ -597,12 +598,12 @@
       var h = textH();
       var size = 0; // 0: the stylesheet's own size is what fits
       if (h > share) {
-        // The largest size whose text still fits the share, and no smaller than 11px:
-        // the height itself is left to the font, so a short caption is exactly as tall
-        // as its words and a long one is cut by the clip below rather than allowed to
-        // grow. Halving the range a few times finds the size.
-        var lo = CAPTION_MIN_PX, hi = parseFloat(cs.fontSize) || 16;
-        for (var i = 0; i < 4 && hi - lo > 0.5; i++) {
+        // The largest size whose text still fits the share, found by halving the range.
+        // There is no floor under it: a caption too small to read is still better than
+        // one that hangs out of the card, and the height is otherwise left to the font,
+        // so a short caption is exactly as tall as its words.
+        var lo = 0.5, hi = parseFloat(cs.fontSize) || 16;
+        for (var i = 0; i < 6 && hi - lo > 0.5; i++) {
           var mid = (lo + hi) / 2;
           cap.style.setProperty('--cap-size', mid + 'px');
           if (textH() <= share) lo = mid; else hi = mid;
