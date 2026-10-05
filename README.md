@@ -41,6 +41,12 @@ keyboard-driven, two-column deck you can click, swipe and embed live demos in.
 <script src="livedeck.js"></script>
 ```
 
+A step usually reads as two panels: content on the left, media on the right. Mark the
+content `data-full` and leave the media out and the step reads as one panel across the
+whole slide, for a step that is all words. (With a `[data-media]` present the flag does
+nothing — the media gets its column.) In `mount()` the same flag is `full: true` on a
+slide.
+
 If a `#deck-source` template is present, LiveDeck auto-initialises on load.
 Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 `LiveDeck.mount()` yourself.
@@ -53,6 +59,7 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 | Slides | `<section class="slide-source" data-section data-title>` inside `<template id="deck-source">` |
 | Content (left) | `[data-content]` — free-form HTML |
 | Media (right) | children of `[data-media]`: `<img>` or `<iframe>` |
+| Full-width content | `[data-content][data-full]` — with no `[data-media]`, the content takes the whole slide |
 
 **Config attributes** (all optional):
 

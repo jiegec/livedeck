@@ -98,6 +98,11 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   so the iframe is never reloaded and keeps its state, input and scroll position. `Esc` and
   a press outside are handled by the deck (`popover="manual"`), and the fit is restored
   synchronously when it closes.
+* **A step is two panels until it says otherwise.** Every `.slide-source` renders a content
+  panel and a media panel; `data-full` on `[data-content]`, with no `[data-media]`, renders
+  the content panel alone across the slide (`full: true` through `mount()`). It is opt-in
+  because a short step reads better in a narrow measure even when there is nothing to put
+  beside it.
 * **History carries the step**: each step pushes `#step-N`, Back/Forward walk the steps, and
   a step the reader did not ask for is recorded only when the deck itself moved.
 

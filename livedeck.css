@@ -143,6 +143,13 @@ body {
   grid-template-columns: minmax(0, 44%) minmax(0, 56%);
 }
 
+/* A step with data-full and no media has no right panel to give a column to: it is one
+   column, so the content is laid out across the whole slide. Two classes, so it also wins
+   over the wider 42/58 split the responsive rule below sets. */
+.slide-inner.is-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* Each panel is scaled with JS to fill the column while keeping all content visible */
 
 .panel {

@@ -197,6 +197,9 @@
         section: sec.getAttribute('data-section') || '',
         title: sec.getAttribute('data-title') || '',
         content: contentEl ? contentEl.innerHTML : '',
+        // data-full: the step's content is meant to be read on its own, so with no media
+        // it takes the whole width instead of leaving the media column empty.
+        full: !!(contentEl && contentEl.hasAttribute('data-full')),
         media: media,
       };
     });
@@ -208,6 +211,7 @@
       section: s.section || '',
       title: s.title || '',
       content: s.content != null ? s.content : '',
+      full: !!s.full,
       media: (Array.isArray(s.media) ? s.media : (s.media == null ? [] : [s.media])).map(function (m) {
         if (typeof m === 'string') return { type: 'img', src: m, caption: '' };
         return {
@@ -360,18 +364,22 @@
       var el = doc.createElement('section');
       el.className = 'slide';
       el.dataset.index = i;
+      // A step marked data-full that has no media is read on its own: the media column is
+      // not drawn at all, so no empty panel is left beside the words.
+      var full = s.full && !s.media.length;
       el.innerHTML =
-        '<div class="slide-inner">' +
+        '<div class="slide-inner' + (full ? ' is-full' : '') + '">' +
         '<div class="panel left-panel">' +
         '<div class="fit-wrap"><div class="panel-inner">' +
         (s.section ? '<div class="section-badge">' + escHtml(s.section) + '</div>' : '') +
         (s.title ? '<h2 class="slide-title">' + escHtml(s.title) + '</h2>' : '') +
         '<div class="ld-content">' + s.content + '</div>' +
         '</div></div></div>' +
-        '<div class="panel right-panel">' +
-        '<div class="fit-wrap"><div class="panel-inner media-inner">' +
-        '<div class="media-grid">' + buildMedia(s.media) + '</div>' +
-        '</div></div></div>' +
+        (full ? '' :
+          '<div class="panel right-panel">' +
+          '<div class="fit-wrap"><div class="panel-inner media-inner">' +
+          '<div class="media-grid">' + buildMedia(s.media) + '</div>' +
+          '</div></div></div>') +
         '</div>';
       deck.appendChild(el);
       // Strip the markup indentation from code/formula blocks authored on their
