@@ -898,8 +898,148 @@
       return cap.offsetHeight;
     }
 
+    /* ---------- zooming the media further ----------
+     * Both lightboxes show the media at the largest size that fits, and then let the reader
+     * go further: a trackpad pinch (which arrives as a wheel event with ctrlKey set — the
+     * browser's own signal for a page zoom, so it has to be taken and prevented), a
+     * two-finger pinch on a touch screen, or a double click/tap to toggle. The media is
+     * transformed, never laid out again, just as the fit scales an embed rather than
+     * reflowing it. What stays put is the point under the fingers, which is the whole
+     * difference between this and a slider. */
+    var VIEW_MAX = 8;
+    var view = { el: null, z: 1, x: 0, y: 0 };
+    function clampView() {
+      var w = view.el ? view.el.offsetWidth : 0, h = view.el ? view.el.offsetHeight : 0;
+      if (!w || !h) { view.x = view.y = 0; return; }
+      view.z = Math.min(VIEW_MAX, Math.max(1, view.z));
+      var sw = w * view.z, sh = h * view.z;
+      // The media never leaves a gap in its own box: at z = 1 it *is* the box, and zoomed
+      // in it always covers it.
+      view.x = sw <= w ? (w - sw) / 2 : Math.min(0, Math.max(w - sw, view.x));
+      view.y = sh <= h ? (h - sh) / 2 : Math.min(0, Math.max(h - sh, view.y));
+    }
+    function applyView() {
+      if (!view.el) return;
+      clampView();
+      var st = view.el.style;
+      st.transformOrigin = '0 0';
+      st.transform = (view.z > 1.001 || view.x || view.y)
+        ? 'translate(' + r1(view.x) + 'px,' + r1(view.y) + 'px) scale(' + view.z.toFixed(4) + ')'
+        : '';
+      view.el.classList.toggle('is-zoomed', view.z > 1.001);
+    }
+    // Hand the view to the element that carries the media, back at the fitted size. Every
+    // re-fit — opening, a resize — starts here again, so a stale transform is never left on
+    // a size it was not measured against.
+    function setView(el) {
+      if (view.el && view.el !== el) { view.el.style.transform = ''; view.el.classList.remove('is-zoomed'); }
+      view.el = el;
+      view.z = 1; view.x = 0; view.y = 0;
+      applyView();
+    }
+    // Where a point on the screen is in the media's *layout* box: the element carries the
+    // transform, so its rect is the transformed one.
+    function viewPoint(el, clientX, clientY) {
+      var r = el.getBoundingClientRect();
+      return { x: (clientX - r.left) / view.z, y: (clientY - r.top) / view.z };
+    }
+    // Zoom by a factor around a point in those coordinates. With the content point p at
+    // p*z + x on screen, keeping it there through z -> z' means x' = x - p*(z' - z).
+    function zoomAt(factor, px, py) {
+      if (!view.el) return;
+      var z = Math.min(VIEW_MAX, Math.max(1, view.z * factor)), dz = z - view.z;
+      view.z = z;
+      view.x -= px * dz;
+      view.y -= py * dz;
+      applyView();
+    }
+    function panBy(dx, dy) { view.x += dx; view.y += dy; applyView(); }
+    // An animation class eases a double click or a reset into place; a pinch or a drag must
+    // not carry it, or the media lags the fingers.
+    function animateView(el) {
+      el.classList.add('is-animating');
+      later(function () { el.classList.remove('is-animating'); }, 200);
+    }
+    // The gestures, on whichever element holds the media: the same handlers serve both
+    // lightboxes. A host that does not own the current view (the lightbox behind a live
+    // enlargement, say) is ignored.
+    function bindZoomGestures(host, mediaOf) {
+      on(host, 'wheel', function (e) {
+        var el = mediaOf();
+        if (!el || view.el !== el) return;
+        var line = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? host.clientHeight || 16 : 1);
+        var d = e.deltaY * line;
+        if (e.ctrlKey || e.metaKey) {
+          // A trackpad pinch. Left alone the page zooms instead, and the gesture stays
+          // stuck to the page.
+          e.preventDefault();
+          var p = viewPoint(el, e.clientX, e.clientY);
+          zoomAt(Math.exp(-d * 0.012), p.x, p.y);
+        } else if (view.z > 1.001) {
+          e.preventDefault(); // pan rather than scroll whatever is behind
+          panBy(-e.deltaX * line, -d);
+        }
+      }, { passive: false });
+      var touch = null;
+      function spread(e) {
+        var a = e.touches[0], b = e.touches[1];
+        var r = view.el.getBoundingClientRect();
+        return {
+          d: Math.sqrt(Math.pow(b.clientX - a.clientX, 2) + Math.pow(b.clientY - a.clientY, 2)) || 1,
+          x: (a.clientX + b.clientX) / 2 - r.left,
+          y: (a.clientY + b.clientY) / 2 - r.top,
+        };
+      }
+      on(host, 'touchstart', function (e) {
+        var el = mediaOf();
+        if (!el || view.el !== el) { touch = null; return; }
+        if (e.touches.length === 2) {
+          touch = { pinch: spread(e), z: view.z };
+        } else if (e.touches.length === 1 && view.z > 1.001) {
+          touch = { from: { x: e.touches[0].clientX, y: e.touches[0].clientY } };
+        } else {
+          touch = null;
+        }
+      }, { passive: true });
+      on(host, 'touchmove', function (e) {
+        if (!touch || !view.el) return;
+        if (touch.pinch && e.touches.length === 2) {
+          e.preventDefault();
+          // The midpoint is the anchor, so the media follows the fingers: spreading them
+          // zooms in around it, and moving them drags the media along.
+          var m = spread(e);
+          var p = { x: m.x / view.z, y: m.y / view.z };
+          var z = Math.min(VIEW_MAX, Math.max(1, touch.z * (m.d / touch.pinch.d)));
+          var dz = z - view.z;
+          view.z = z;
+          view.x -= p.x * dz;
+          view.y -= p.y * dz;
+          applyView();
+        } else if (touch.from && e.touches.length === 1) {
+          e.preventDefault();
+          panBy(e.touches[0].clientX - touch.from.x, e.touches[0].clientY - touch.from.y);
+          touch.from = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+      }, { passive: false });
+      on(host, 'touchend', function (e) { if (e.touches.length < 2) touch = null; }, { passive: true });
+      on(host, 'touchcancel', function () { touch = null; }, { passive: true });
+      on(host, 'dblclick', function (e) {
+        var el = mediaOf();
+        if (!el || view.el !== el) return;
+        animateView(el);
+        if (view.z > 1.001) { setView(el); return; }
+        var p = viewPoint(el, e.clientX, e.clientY);
+        zoomAt(2.5, p.x, p.y);
+      });
+    }
+    bindZoomGestures(lightbox, function () {
+      return lightbox.classList.contains('open') ? lbImg : null;
+    });
+
     function fitLightbox() {
       if (!lightbox.classList.contains('open')) return;
+      // Back to the fitted size, whichever gesture got us away from it.
+      setView(lbImg);
       var natW = lbImg.naturalWidth || lbNat[0], natH = lbImg.naturalHeight || lbNat[1];
       if (!natW || !natH) return;
       // Back to the largest box CSS allows, which is also what a resize has to
@@ -930,6 +1070,7 @@
     function closeLightbox() {
       lightbox.classList.remove('open');
       lbImg.removeAttribute('src');
+      setView(null);
     }
     on(lbImg, 'load', function () { fitLightbox(); });
     function openImageLightbox(card) {
@@ -976,7 +1117,7 @@
       var open = zoomed === card;
       card.removeAttribute('popover');
       card.classList.remove('zoomed');
-      if (open) zoomed = null;
+      if (open) { zoomed = null; setView(null); }
       if (open && !destroyed) fitCurrent(); // synchronous: no half-restored frame is painted
     }
 
@@ -992,6 +1133,7 @@
       var frame = zoomed.querySelector('.live-frame');
       var cap = zoomed.querySelector('.caption');
       if (!wrap || !frame) return;
+      setView(wrap); // back to the fitted size, wherever a gesture left it
       var natW = parseFloat(frame.dataset.natW) || frame.offsetWidth;
       var natH = parseFloat(frame.dataset.natH) || frame.offsetHeight;
       // Back to the size CSS allows it (the widest the caption can be laid out
@@ -1096,6 +1238,12 @@
       });
       addToMedia(card, btn);
       if (!live) return;
+      // The live lightbox shows the embed at its fitted size and lets a gesture go further.
+      // The gestures only reach the card where the card is what is under the pointer: an
+      // embedded page owns the events over its own surface, and it is welcome to them.
+      bindZoomGestures(card, function () {
+        return zoomed === card ? card.querySelector('.live-wrap') : null;
+      });
       var close = doc.createElement('button');
       close.type = 'button';
       close.className = 'media-close';

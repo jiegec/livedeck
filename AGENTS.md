@@ -94,6 +94,15 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   viewport, and a caption too long for the screen is still all reachable — the same reason the
   grid caption is never clipped. The band is cleared when a card leaves the lightbox, so it
   never follows the caption back into the grid.
+* **A lightbox can be zoomed further by gesture** (`bindZoomGestures()`, `VIEW_MAX`): a
+  trackpad pinch (a ctrl-wheel, taken with `preventDefault` or the page zooms instead), a
+  two-finger pinch, a drag or a wheel to pan, and a double click to toggle. The media is
+  transformed and never laid out again — the same rule the embed's fit follows — and
+  `zoomAt()` keeps the point under the fingers where it is, which is the difference between
+  a gesture and a slider. Every re-fit (opening, a resize) goes back through `setView()`, so
+  a transform is never left on a size it was not measured against. An embedded page owns the
+  pointer events over its own surface, so there the deck sees the gestures only outside the
+  frame.
 * **The live lightbox promotes the card in place** with the Popover API instead of moving it,
   so the iframe is never reloaded and keeps its state, input and scroll position. `Esc` and
   a press outside are handled by the deck (`popover="manual"`), and the fit is restored

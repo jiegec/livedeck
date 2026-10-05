@@ -347,6 +347,10 @@ body {
 
 #lightbox .lb-img {
   display: block;
+  /* Pinch and drag belong to the deck here, not to the browser: without this the page
+     scrolls or rubber-bands under the gesture. (An enlarged embed keeps the gestures it
+     gave the embedded page, so this applies to the image lightbox only.) */
+  touch-action: none;
   /* Sized by fitLightbox() to the image's own aspect ratio, with the box hugging
      it. The max-* / object-fit pair only matters before that has run (or if the
      image never reports a size), where it keeps the picture inside the box
@@ -364,9 +368,11 @@ body {
   flex: 0 0 auto;
   width: 100%;
   /* capBand() gives it a share of the box to scroll in, so a long caption cannot
-     push the picture out of the lightbox (or itself out of reach). */
+     push the picture out of the lightbox (or itself out of reach). pan-y leaves the
+     vertical scroll to the browser and every other gesture to the deck. */
   overflow: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   color: #e2e8f0;
   font-size: 15px;
   line-height: 1.5;
@@ -374,6 +380,23 @@ body {
   text-align: center;
   border-top: 1px solid rgba(255, 255, 255, .14);
   background: #0b0e18;
+}
+
+/* A gesture drives the transform directly, so it must not be eased; a double click or a
+   reset may be. */
+#lightbox .lb-img.is-animating,
+.media-card.live-card.zoomed .live-wrap.is-animating {
+  transition: transform .18s ease;
+}
+
+#lightbox .lb-img.is-zoomed,
+.media-card.live-card.zoomed .live-wrap.is-zoomed {
+  cursor: grab;
+}
+
+#lightbox .lb-img.is-zoomed:active,
+.media-card.live-card.zoomed .live-wrap.is-zoomed:active {
+  cursor: grabbing;
 }
 
 #lightbox .lb-close {
@@ -535,9 +558,11 @@ body {
 
 .media-card.live-card.zoomed .caption {
   flex: 0 0 auto;
-  /* As in the image lightbox: capBand() bounds it, it scrolls inside that. */
+  /* As in the image lightbox: capBand() bounds it, it scrolls inside that, and a pinch
+     over it is still the deck's. */
   overflow: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   padding-right: 16px;
   text-align: center;
   color: #e2e8f0;

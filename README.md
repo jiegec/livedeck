@@ -94,8 +94,13 @@ you point at the card (and stays visible where there is no hover). An image open
 lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
 so the embedded page is never copied, reloaded or moved, and it keeps its state, its input
 and its scroll position. Either way the media is scaled up as far as its own aspect ratio
-allows and the box around it follows that size, so no black bars are left over. Esc, a
-click outside, or the × closes it again.
+allows and the box around it follows that size, so no black bars are left over.
+
+Enlarged, the media can be zoomed further and panned: pinch on a trackpad (or ⌘/Ctrl-scroll),
+pinch with two fingers on a touch screen, drag or scroll to move around, and double-click
+(or double-tap) to toggle between fitted and 2.5×. The point under your fingers is what
+stays put, and the media is only transformed — never re-laid out, and an embed never
+reflowed. Esc, a click outside, or the × closes it again.
 
 The rules the panel is laid out by, and what the deck measures to satisfy them, are in
 [AGENTS.md](AGENTS.md).
