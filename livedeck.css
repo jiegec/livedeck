@@ -382,6 +382,13 @@ body {
   background: #0b0e18;
 }
 
+/* The box grows with the zoom (see sizeBox), so a double click has to ease it along with
+   the media or the two would move apart. */
+#lightbox .lb-box.is-animating,
+.media-card.live-card.zoomed.is-animating {
+  transition: width .18s ease, height .18s ease;
+}
+
 /* A gesture drives the transform directly, so it must not be eased; a double click or a
    reset may be. */
 #lightbox .lb-img.is-animating,

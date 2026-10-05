@@ -99,8 +99,14 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   two-finger pinch, a drag or a wheel to pan, and a double click to toggle. The media is
   transformed and never laid out again — the same rule the embed's fit follows — and
   `zoomAt()` keeps the point under the fingers where it is, which is the difference between
-  a gesture and a slider. Every re-fit (opening, a resize) goes back through `setView()`, so
-  a transform is never left on a size it was not measured against. An embedded page owns the
+  a gesture and a slider. The box grows with the zoom as well (`sizeBox()`), up to the `max`
+  the CSS allowed it when it was fitted: zooming into a detail should show more of it, not the
+  same slice magnified, and a box already at the page's height grows in width alone. The media
+  is transformed either way, so the extra room is room to see. Where the box did grow to match
+  the media, the whole media is visible and the anchor has nothing to hold; where the viewport
+  capped it, the anchor is what keeps the content under the fingers. Every re-fit (opening, a
+  resize) goes back through `setView()`, so neither a transform nor a grown box is left on a
+  size it was not measured against. An embedded page owns the
   pointer events over its own surface, so there the deck sees the gestures only outside the
   frame.
 * **The live lightbox promotes the card in place** with the Popover API instead of moving it,

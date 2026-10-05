@@ -907,19 +907,36 @@
      * reflowing it. What stays put is the point under the fingers, which is the whole
      * difference between this and a slider. */
     var VIEW_MAX = 8;
-    var view = { el: null, z: 1, x: 0, y: 0 };
+    var view = { el: null, box: null, capEl: null, max: null, media: null, cap: 0, z: 1, x: 0, y: 0 };
+    // The box grows with the zoom, as far as the viewport lets it: zooming into a detail
+    // should show more of it, not the same slice magnified — a 2x zoom in a box already at
+    // the page's height doubles its width and leaves the height alone. The media itself is
+    // only transformed, so the extra room is room to see, never a re-layout.
+    function sizeBox() {
+      if (!view.box || !view.media || !view.max) return;
+      view.box.style.width = Math.min(view.max.w, view.media.w * view.z) + 'px';
+      // The caption re-wraps at the new width, so measure it before giving the box its height.
+      if (view.capEl) view.cap = view.capEl.offsetHeight;
+      view.box.style.height = Math.min(view.max.h, view.media.h * view.z + view.cap) + 'px';
+    }
     function clampView() {
-      var w = view.el ? view.el.offsetWidth : 0, h = view.el ? view.el.offsetHeight : 0;
-      if (!w || !h) { view.x = view.y = 0; return; }
+      // What is visible is the box, grown and capped, less the caption's band — not the
+      // media's own box, which the zoom has left behind.
+      var w = view.box ? view.box.clientWidth : (view.el ? view.el.offsetWidth : 0);
+      var h = view.box ? view.box.clientHeight - view.cap : (view.el ? view.el.offsetHeight : 0);
+      if (!w || !h || !view.media) { view.x = view.y = 0; return; }
       view.z = Math.min(VIEW_MAX, Math.max(1, view.z));
-      var sw = w * view.z, sh = h * view.z;
-      // The media never leaves a gap in its own box: at z = 1 it *is* the box, and zoomed
-      // in it always covers it.
+      var sw = view.media.w * view.z, sh = view.media.h * view.z;
+      // The media never leaves a gap in what is visible: at z = 1 it fills it exactly, and
+      // zoomed in it always covers it. Where the box grew with the zoom there is nothing to
+      // pan and the whole media is visible, so the anchor has nothing to hold; where the
+      // viewport capped the box, this is what keeps the content under the fingers.
       view.x = sw <= w ? (w - sw) / 2 : Math.min(0, Math.max(w - sw, view.x));
       view.y = sh <= h ? (h - sh) / 2 : Math.min(0, Math.max(h - sh, view.y));
     }
     function applyView() {
       if (!view.el) return;
+      sizeBox();
       clampView();
       var st = view.el.style;
       st.transformOrigin = '0 0';
@@ -928,14 +945,24 @@
         : '';
       view.el.classList.toggle('is-zoomed', view.z > 1.001);
     }
-    // Hand the view to the element that carries the media, back at the fitted size. Every
-    // re-fit — opening, a resize — starts here again, so a stale transform is never left on
-    // a size it was not measured against.
-    function setView(el) {
+    // Hand the view to the media that a lightbox is showing, back at the fitted size. Every
+    // re-fit — opening, a resize — starts here again, so neither a transform nor a grown box
+    // is left on a size that was not measured against. `max` is what the CSS allows the box
+    // to be, which is what the zoom grows it towards.
+    function setView(v) {
+      var el = v ? v.el : null, box = v ? v.box : null;
       if (view.el && view.el !== el) { view.el.style.transform = ''; view.el.classList.remove('is-zoomed'); }
+      if (view.box && view.box !== box) {
+        view.box.style.width = view.box.style.height = '';
+        view.box.classList.remove('is-animating');
+      }
       view.el = el;
-      view.z = 1; view.x = 0; view.y = 0;
-      applyView();
+      view.box = box;
+      view.capEl = (v && v.cap) || null;
+      view.max = (v && v.max) || null;
+      view.media = el ? { w: el.offsetWidth, h: el.offsetHeight } : null;
+      view.cap = view.capEl ? view.capEl.offsetHeight : 0;
+      resetView();
     }
     // Where a point on the screen is in the media's *layout* box: the element carries the
     // transform, so its rect is the transformed one.
@@ -954,11 +981,16 @@
       applyView();
     }
     function panBy(dx, dy) { view.x += dx; view.y += dy; applyView(); }
+    function resetView() { view.z = 1; view.x = 0; view.y = 0; applyView(); }
     // An animation class eases a double click or a reset into place; a pinch or a drag must
-    // not carry it, or the media lags the fingers.
-    function animateView(el) {
-      el.classList.add('is-animating');
-      later(function () { el.classList.remove('is-animating'); }, 200);
+    // not carry it, or the media lags the fingers. The box is eased with the media, or the
+    // two would move apart.
+    function animateView() {
+      var els = [view.el, view.box];
+      els.forEach(function (el) { if (el) el.classList.add('is-animating'); });
+      later(function () {
+        els.forEach(function (el) { if (el) el.classList.remove('is-animating'); });
+      }, 200);
     }
     // The gestures, on whichever element holds the media: the same handlers serve both
     // lightboxes. A host that does not own the current view (the lightbox behind a live
@@ -1026,8 +1058,8 @@
       on(host, 'dblclick', function (e) {
         var el = mediaOf();
         if (!el || view.el !== el) return;
-        animateView(el);
-        if (view.z > 1.001) { setView(el); return; }
+        animateView();
+        if (view.z > 1.001) { resetView(); return; }
         var p = viewPoint(el, e.clientX, e.clientY);
         zoomAt(2.5, p.x, p.y);
       });
@@ -1038,13 +1070,12 @@
 
     function fitLightbox() {
       if (!lightbox.classList.contains('open')) return;
-      // Back to the fitted size, whichever gesture got us away from it.
-      setView(lbImg);
       var natW = lbImg.naturalWidth || lbNat[0], natH = lbImg.naturalHeight || lbNat[1];
       if (!natW || !natH) return;
       // Back to the largest box CSS allows, which is also what a resize has to
-      // measure against again.
+      // measure against again — and, for the gestures, how far the box may grow.
       lbBox.style.width = lbBox.style.height = '';
+      var lbMax = { w: lbBox.clientWidth, h: lbBox.clientHeight };
       lbImg.style.width = lbImg.style.height = '';
       var capH = capBand(lbBox, lbCap);
       var availW = lbBox.clientWidth;
@@ -1057,6 +1088,7 @@
       // The caption may need another line at this width, so let the box grow to
       // whatever the two of them add up to.
       lbBox.style.height = 'auto';
+      setView({ el: lbImg, box: lbBox, cap: lbCap, max: lbMax });
     }
     function openLightbox(src, cap, alt, natW, natH) {
       lbNat = [natW || 0, natH || 0];
@@ -1133,12 +1165,13 @@
       var frame = zoomed.querySelector('.live-frame');
       var cap = zoomed.querySelector('.caption');
       if (!wrap || !frame) return;
-      setView(wrap); // back to the fitted size, wherever a gesture left it
       var natW = parseFloat(frame.dataset.natW) || frame.offsetWidth;
       var natH = parseFloat(frame.dataset.natH) || frame.offsetHeight;
-      // Back to the size CSS allows it (the widest the caption can be laid out
-      // at), which is also what a resize has to measure against again.
+      // Back to the size CSS allows it (the widest the caption can be laid out at), which
+      // is also what a resize has to measure against again — and, for the gestures, how far
+      // the box may grow.
       zoomed.style.width = zoomed.style.height = '';
+      var zoomMax = { w: zoomed.clientWidth, h: zoomed.clientHeight };
       var capH = capBand(zoomed, cap);
       var availW = zoomed.clientWidth;
       var availH = zoomed.clientHeight - capH;
@@ -1153,6 +1186,7 @@
       // The card is narrower now, so the caption may have wrapped onto another
       // line: let the height follow from the wrapper plus whatever it needs.
       zoomed.style.height = 'auto';
+      setView({ el: wrap, box: zoomed, cap: cap, max: zoomMax });
     }
 
     function openZoom(card) {

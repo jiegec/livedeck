@@ -98,9 +98,12 @@ allows and the box around it follows that size, so no black bars are left over.
 
 Enlarged, the media can be zoomed further and panned: pinch on a trackpad (or ⌘/Ctrl-scroll),
 pinch with two fingers on a touch screen, drag or scroll to move around, and double-click
-(or double-tap) to toggle between fitted and 2.5×. The point under your fingers is what
-stays put, and the media is only transformed — never re-laid out, and an embed never
-reflowed. Esc, a click outside, or the × closes it again.
+(or double-tap) to toggle between fitted and 2.5×. The box grows with the zoom as far as the
+screen allows — twice the zoom is twice the width, with the height already at the page's — so
+zooming in shows more of the picture rather than the same slice magnified; where the screen
+caps the box, the point under your fingers is what stays put. The media is only transformed,
+never re-laid out, and an embed is never reflowed. Esc, a click outside, or the × closes it
+again.
 
 The rules the panel is laid out by, and what the deck measures to satisfy them, are in
 [AGENTS.md](AGENTS.md).
