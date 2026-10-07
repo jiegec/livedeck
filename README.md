@@ -59,6 +59,7 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 | Slides | `<section class="slide-source" data-section data-title>` inside `<template id="deck-source">` |
 | Content (left) | `[data-content]` — free-form HTML |
 | Media (right) | children of `[data-media]`: `<img>` or `<iframe>` |
+| Image caption | `data-caption`, or the image's `alt` when there is none (write `data-caption=""` for none) |
 | Full-width content | `[data-content][data-full]` — with no `[data-media]`, the content takes the whole slide |
 
 **Config attributes** (all optional):
@@ -74,12 +75,17 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 **Media items**
 
 ```html
-<!-- image / svg -->
-<img src="pic.png" alt="…" data-caption="Shown under the image">
+<!-- image / svg: the alt text is the caption when there is no data-caption -->
+<img src="pic.png" alt="Shown under the image">
+<img src="other.png" alt="A logo" data-caption="">   <!-- alt, and no caption -->
 
 <!-- live iframe; see the live-embed notes below -->
 <iframe src="page.html" data-caption="Shown under the frame"></iframe>
 ```
+
+An image's caption falls back to its `alt`, so the sentence is written once and serves both
+the screen reader and the reader. `data-caption=""` says "no caption" for an image whose alt
+is there for accessibility alone.
 
 Nothing has to be declared about a media's size: an image's ratio is read from the image and
 an embed reports its own size, so the deck measures everything at runtime. Cards are laid out

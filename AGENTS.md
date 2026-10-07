@@ -89,6 +89,10 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   frame's own `load`; a page that never reports is laid out in its cell. Nothing about a
   media's size is declared anywhere — the deck measures, and sizes that do not exist yet
   are simply not drawn.
+* **An image's caption falls back to its `alt`**, in both readers (`readSlides()` and
+  `normalizeSlide()`, and the same for `mount()`), because it is the same sentence and a page
+  should only write it once. It is the attribute's presence that decides, so `data-caption=""`
+  is still how an image says it has no caption; a live embed has no `alt` to fall back to.
 * **Both lightboxes bound their caption** (`capBand()`, `LIGHTBOX_CAP` of the box) and let it
   scroll inside that band: the media keeps the rest of the box, the box stays inside the
   viewport, and a caption too long for the screen is still all reachable — the same reason the

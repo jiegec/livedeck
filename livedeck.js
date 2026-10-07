@@ -178,19 +178,23 @@
       var contentEl = sec.querySelector('[data-content]');
       var mediaWrap = sec.querySelector('[data-media]');
       var media = mediaWrap ? Array.prototype.slice.call(mediaWrap.children).map(function (el) {
-        var caption = el.getAttribute('data-caption') || '';
         if (el.tagName === 'IFRAME') {
           return {
             type: 'live',
             src: el.getAttribute('src') || '',
-            caption: caption,
+            caption: el.getAttribute('data-caption') || '',
           };
         }
+        var alt = el.getAttribute('alt');
+        var cap = el.getAttribute('data-caption');
         return {
           type: el.getAttribute('data-type') || 'img',
           src: el.getAttribute('src') || '',
-          alt: el.getAttribute('alt'),
-          caption: caption,
+          alt: alt,
+          // An image that carries no data-caption is captioned by its alt text: it is the
+          // same sentence, and a page should only have to write it once. It is the
+          // attribute's presence that decides, so data-caption="" still means "none".
+          caption: cap !== null ? cap : (alt || ''),
         };
       }) : [];
       return {
@@ -214,11 +218,15 @@
       full: !!s.full,
       media: (Array.isArray(s.media) ? s.media : (s.media == null ? [] : [s.media])).map(function (m) {
         if (typeof m === 'string') return { type: 'img', src: m, caption: '' };
+        var type = m.type || 'img';
+        var alt = m.alt != null ? m.alt : null;
         return {
-          type: m.type || 'img',
+          type: type,
           src: m.src || '',
-          alt: m.alt != null ? m.alt : null,
-          caption: m.caption || '',
+          alt: alt,
+          // As in the markup: an image with no caption of its own is captioned by its alt
+          // text, and an explicit caption: '' still means "none".
+          caption: m.caption != null ? m.caption : (type === 'img' ? (alt || '') : ''),
         };
       }),
     };
