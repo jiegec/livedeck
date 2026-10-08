@@ -29,7 +29,10 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
    offers (a window resize, a rotation) decides the arrangement again.
 3. **Every card gets a cell of the same size.** Inside it the media keeps its own aspect
    ratio and, together with the caption, fills the cell as far as one of the two dimensions
-   allows; the card then hugs what came out of that, so its sides are the media's sides.
+   allows; the card then hugs what came out of that, so its sides are the media's sides. A
+   video is an image whose ratio comes from its metadata; an audio bar is the one media with
+   no ratio — it keeps the cell's width and its own fixed height, and only its caption is
+   squeezed.
 4. **The caption's height follows its content, under a ceiling the media sets.** A card the
    cell's *height* pins — the media at the cell's full width would not fit — may spare the
    caption only a fifth of the cell, which is what keeps the media its room. A card the
@@ -55,11 +58,12 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
   reproduces the width its caption was settled for. Two rounds are the usual case; the bound
   is a backstop, and because the caption's box is bounded by its ceiling the layout stays inside
   the cell even where the rounds do not fully settle.
-* **`captionCeiling()` says how tall a caption may be.** It compares the cell's width times
-  the media's ratio — the height the media would want at full width — with the cell, less
-  `CAPTION_MAX` of it: if the media wants more than that, the cell's height is the binding
-  constraint and the caption gets `CAPTION_MAX`; otherwise the cell's width is, and the
-  caption gets everything the media leaves. The ratio's unknown case takes the tight one.
+* **`captionCeiling()` says how tall a caption may be.** `mediaFullHeight()` gives the height
+  the media would want at the cell's full width — a ratio for an image, an embed or a video,
+  its own fixed height for an audio bar — and the ceiling is the cell less `CAPTION_MAX` of
+  it. If the media wants more than that, the cell's height is the binding constraint and the
+  caption gets `CAPTION_MAX`; otherwise the cell's width is, and the caption gets everything
+  the media leaves. The size's unknown case takes the tight one.
 * **`settleCaption()` decides the caption from its own text**, with `--cap-size` and the
   padding it set last time reset first: what the last settle left must not colour the
   measurement. It rewrites the theme's padding as a share of the font size — the proportion
@@ -73,7 +77,9 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
 * **`fitCardWidth()` sizes the media, never the card.** The card hugs it, so the caption is
   exactly as wide as the media and no pale bar appears beside it. `room = cellH - caption`
   and the media takes `min(cellW, room / ratio)`, so it is as large as the cell allows in one
-  of the two dimensions.
+  of the two dimensions. An image, an embed and a video all go through it; an audio bar has
+  no ratio to solve, so `fitAudioCard()` gives it the cell's width and lets its own height
+  stand.
 * **No guessed size is ever painted.** A card whose media has not given the deck a size stays
   `pending` (hidden, still measurable) and fades in when a fit with real numbers has run;
   `PENDING_MS` is the last resort, since an embed is free to say nothing at all. The fit
@@ -92,7 +98,8 @@ and the invariants behind it. `examples/site/` exercises every feature — assem
 * **An image's caption falls back to its `alt`**, in both readers (`readSlides()` and
   `normalizeSlide()`, and the same for `mount()`), because it is the same sentence and a page
   should only write it once. It is the attribute's presence that decides, so `data-caption=""`
-  is still how an image says it has no caption; a live embed has no `alt` to fall back to.
+  is still how an image says it has no caption; a live embed, a video and an audio bar have no
+  `alt` to fall back to, and take their caption from `data-caption` alone.
 * **Both lightboxes bound their caption** (`capBand()`, `LIGHTBOX_CAP` of the box) and let it
   scroll inside that band: the media keeps the rest of the box, the box stays inside the
   viewport, and a caption too long for the screen is still all reachable — the same reason the

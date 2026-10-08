@@ -233,6 +233,25 @@ body {
   background: #fff;
 }
 
+/* Video is laid out like an image: it keeps its own ratio, capped to the card's width.
+   Audio is a fixed-height control bar — it takes the card's width and never scales, so
+   the box only gives it a little room. */
+.media-card.video-card video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: #000;
+}
+
+.media-card.audio-card .media-box {
+  padding: 6px 0;
+}
+
+.media-card.audio-card audio {
+  display: block;
+  width: 100%;
+}
+
 /* The image's own box, so the enlarge button can sit in the media's bottom-right
    corner rather than over the caption. It hugs the image: both are sized by the fit. */
 .media-box {

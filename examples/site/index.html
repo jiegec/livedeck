@@ -131,7 +131,24 @@
       </div>
     </section>
 
-    <section class="slide-source" data-section="Step 5" data-title="Present it">
+    <section class="slide-source" data-section="Step 5" data-title="Play video and audio">
+      <div data-content>
+        <p><code>&lt;video&gt;</code> and <code>&lt;audio&gt;</code> keep their native controls
+          and are laid out like the rest of the media:</p>
+        <div class="code-block">
+          &lt;video src="assets/clip.mp4" data-caption="Shown under the video"&gt;&lt;/video&gt;
+          &lt;audio src="assets/tone.mp3" data-caption="Shown under the player"&gt;&lt;/audio&gt;
+        </div>
+        <p class="hint">A video's ratio is read from its metadata; an audio bar keeps its own
+          height and is never scaled.</p>
+      </div>
+      <div data-media>
+        <video src="assets/clip.mp4" data-caption="A video, with its native controls"></video>
+        <audio src="assets/tone.mp3" data-caption="An audio bar"></audio>
+      </div>
+    </section>
+
+    <section class="slide-source" data-section="Step 6" data-title="Present it">
       <div data-content>
         <p>Navigation, the overview and fullscreen are built in.</p>
         <div class="table-wrap">
@@ -183,7 +200,7 @@
       </div>
     </section>
 
-    <section class="slide-source" data-section="Step 6" data-title="Make it yours">
+    <section class="slide-source" data-section="Step 7" data-title="Make it yours">
       <div data-content>
         <p>Set the accents in the config, or override the CSS variables in
           <code>livedeck.css</code>:

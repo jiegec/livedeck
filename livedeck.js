@@ -1,6 +1,6 @@
 /*! LiveDeck v0.1.0 — interactive web slides.
  *  Turns a normal HTML page into a full-screen, two-column deck:
- *  content on the left, media (images / live iframes) on the right.
+ *  content on the left, media (images, live iframes, video, audio) on the right.
  *  Everything (config + slides) can be declared in HTML and read by this file,
  *  or passed programmatically to LiveDeck.mount().
  *  MIT licensed.
@@ -118,6 +118,12 @@
    * Each renderer is (media, T) => HTML string. Override or add your own
    * via `options.renderers`.
    * ================================================================== */
+  function mediaSources(sources) {
+    return (sources || []).map(function (s) {
+      return '<source src="' + escAttr(s.src) + '"' + (s.type ? ' type="' + escAttr(s.type) + '"' : '') + '>';
+    }).join('');
+  }
+
   var renderers = {
     img: function (m) {
       var alt = m.alt != null ? m.alt : m.caption;
@@ -145,6 +151,35 @@
         ' src="' + escAttr(m.src) + '" scrolling="no" loading="eager"' +
         ' title="' + escAttr(m.caption || '') + '"' +
         ' style="width:100%;border:0;"></iframe>' +
+        '</div>' +
+        (m.caption ? '<div class="caption">' + escHtml(m.caption) + '</div>' : '') +
+        '</div>';
+    },
+    video: function (m) {
+      // A video is laid out like an image: it keeps its own ratio (read from its
+      // metadata, so the card waits for it), and is never reflowed. `controls` is
+      // not optional — a video without them is not a deck slide. A src wins over
+      // <source> children, exactly as the browser resolves them.
+      return '<div class="media-card video-card">' +
+        '<div class="media-box">' +
+        '<video controls playsinline preload="' + escAttr(m.preload || 'metadata') + '"' +
+        (m.src ? ' src="' + escAttr(m.src) + '"' : '') +
+        (m.poster ? ' poster="' + escAttr(m.poster) + '"' : '') +
+        (m.loop ? ' loop' : '') + (m.muted ? ' muted' : '') + (m.autoplay ? ' autoplay' : '') +
+        '>' + (m.src ? '' : mediaSources(m.sources)) + '</video>' +
+        '</div>' +
+        (m.caption ? '<div class="caption">' + escHtml(m.caption) + '</div>' : '') +
+        '</div>';
+    },
+    audio: function (m) {
+      // An audio bar has no ratio to keep: it takes the cell's width and its own
+      // fixed control-strip height, so only its caption is ever squeezed.
+      return '<div class="media-card audio-card">' +
+        '<div class="media-box">' +
+        '<audio controls preload="' + escAttr(m.preload || 'metadata') + '"' +
+        (m.src ? ' src="' + escAttr(m.src) + '"' : '') +
+        (m.loop ? ' loop' : '') + (m.muted ? ' muted' : '') + (m.autoplay ? ' autoplay' : '') +
+        '>' + (m.src ? '' : mediaSources(m.sources)) + '</audio>' +
         '</div>' +
         (m.caption ? '<div class="caption">' + escHtml(m.caption) + '</div>' : '') +
         '</div>';
@@ -183,6 +218,22 @@
             type: 'live',
             src: el.getAttribute('src') || '',
             caption: el.getAttribute('data-caption') || '',
+          };
+        }
+        if (el.tagName === 'VIDEO' || el.tagName === 'AUDIO') {
+          var vcap = el.getAttribute('data-caption');
+          return {
+            type: el.tagName === 'VIDEO' ? 'video' : 'audio',
+            src: el.getAttribute('src') || '',
+            sources: Array.prototype.slice.call(el.querySelectorAll('source')).map(function (s) {
+              return { src: s.getAttribute('src') || '', type: s.getAttribute('type') || '' };
+            }),
+            poster: el.getAttribute('poster') || '',
+            preload: el.getAttribute('preload') || 'metadata',
+            loop: el.hasAttribute('loop'),
+            muted: el.hasAttribute('muted'),
+            autoplay: el.hasAttribute('autoplay'),
+            caption: vcap !== null ? vcap : '',
           };
         }
         var alt = el.getAttribute('alt');
@@ -224,6 +275,14 @@
           type: type,
           src: m.src || '',
           alt: alt,
+          sources: Array.isArray(m.sources) ? m.sources.map(function (src) {
+            return { src: src.src || '', type: src.type || '' };
+          }) : [],
+          poster: m.poster || '',
+          preload: m.preload || 'metadata',
+          loop: !!m.loop,
+          muted: !!m.muted,
+          autoplay: !!m.autoplay,
           // As in the markup: an image with no caption of its own is captioned by its alt
           // text, and an explicit caption: '' still means "none".
           caption: m.caption != null ? m.caption : (type === 'img' ? (alt || '') : ''),
@@ -465,6 +524,11 @@
     function mediaRatio(card) {
       var img = card.querySelector('img');
       if (img) return (img.naturalWidth && img.naturalHeight) ? img.naturalHeight / img.naturalWidth : 0;
+      var video = card.querySelector('video');
+      if (video) return (video.videoWidth && video.videoHeight) ? video.videoHeight / video.videoWidth : 0;
+      // A control bar has no aspect ratio: it keeps the cell's width and its own fixed
+      // height, so the arrangement only has to read it as wide and short.
+      if (card.querySelector('audio')) return 0.15;
       var frame = card.querySelector('.live-frame');
       var w = frame ? parseFloat(frame.dataset.natW) : 0;
       var h = frame ? parseFloat(frame.dataset.natH) : 0;
@@ -560,7 +624,10 @@
         ' cell ' + r1(cellW) + 'x' + r1(cellH) + ' area ' + Math.round(pick.area));
       cards.forEach(function (card, i) {
         var cap = card.querySelector('figcaption, .caption');
-        var tag = 'card ' + (i + 1) + '/' + N + ' ' + (card.classList.contains('live-card') ? 'live' : 'image');
+        var kind = card.classList.contains('live-card') ? 'live'
+          : card.classList.contains('video-card') ? 'video'
+          : card.classList.contains('audio-card') ? 'audio' : 'image';
+        var tag = 'card ' + (i + 1) + '/' + N + ' ' + kind;
         // A caption's own size depends on how wide the card ends up, and the card's
         // size depends on how tall the caption is, so the two are settled together:
         // settle the caption, fit the card, and go round again until a fit reproduces
@@ -582,8 +649,23 @@
     // the caption it just settled was settled for the right width.
     function fitCard(card, cellW, cellH, tag) {
       if (card.classList.contains('live-card')) fitLiveCard(card, cellW, cellH, tag);
+      else if (card.classList.contains('video-card')) fitVideoCard(card, cellW, cellH, tag);
+      else if (card.classList.contains('audio-card')) fitAudioCard(card, cellW, cellH, tag);
       else fitImageCard(card, cellW, cellH, tag);
       return card.offsetWidth;
+    }
+
+    // The height the media wants at a given width. Images, embeds and video keep a
+    // ratio; an audio bar is a fixed height whatever the width, and the ceiling has
+    // to respect that just the same.
+    function mediaFullHeight(card, w) {
+      var audio = card.querySelector('audio');
+      if (audio) {
+        var box = card.querySelector('.media-box');
+        return box ? box.offsetHeight : audio.offsetHeight;
+      }
+      var ratio = mediaRatio(card);
+      return ratio > 0 ? w * ratio : 0;
     }
 
     // How tall a caption may get. A card whose media is pinned by the cell's *height* —
@@ -593,9 +675,8 @@
     // the media keeps the size its ratio wants: neither pays for the other.
     function captionCeiling(card, cellW, cellH) {
       var share = cellH * CAPTION_MAX;
-      var ratio = mediaRatio(card);
-      if (!(ratio > 0)) return share; // ratio unknown yet: assume the tight case
-      var full = cellW * ratio; // the media at the cell's full width
+      var full = mediaFullHeight(card, cellW); // the media at the cell's full width
+      if (!(full > 0)) return share; // media size unknown yet: assume the tight case
       return full > cellH - share ? share : Math.max(share, cellH - full);
     }
 
@@ -737,6 +818,51 @@
         ' card ' + card.offsetWidth + 'x' + card.offsetHeight);
     }
 
+    function fitVideoCard(card, cellW, cellH, tag) {
+      var video = card.querySelector('video');
+      if (!video) return;
+      var cap = card.querySelector('.caption') || card.querySelector('figcaption');
+      // A video has no ratio until its metadata says so, and the poster's own
+      // proportions are not the video's. Until then the card waits, exactly as an
+      // image waits for its bytes; a video that failed to load has nothing to fit,
+      // so it is shown at the size it landed on.
+      var vw = video.videoWidth, vh = video.videoHeight;
+      if (!vw || !vh) {
+        if (video.error) { setPending(card, false); fitLog((tag || 'video') + ': failed, card shown'); return; }
+        setPending(card, true);
+        fitLog((tag || 'video') + ': no metadata yet, card waits');
+        return;
+      }
+      // Measure at the widest the card may get, as an image is measured, so the
+      // ratio does not depend on the width being solved for.
+      card.style.width = cellW + 'px';
+      video.style.width = ''; // natural size, capped by the CSS max-width:100%
+      video.style.height = '';
+      var natW = video.offsetWidth;
+      var natH = video.offsetHeight;
+      setPending(card, false); // settled: the card may be shown…
+      if (!natW || !natH) return; // …even when it settled into nothing to fit
+      var ratio = natH / natW;
+      fitLog((tag || 'video') + ': natural ' + r1(natW) + 'x' + r1(natH) + ' ratio ' + r1(ratio));
+      var mediaW = fitCardWidth(card, cellW, cellH, ratio, cap, tag);
+      video.style.width = mediaW + 'px';
+      video.style.height = (mediaW * ratio) + 'px';
+      fitLog((tag || 'video') + ': media ' + r1(mediaW) + 'x' + r1(mediaW * ratio) +
+        ' card ' + card.offsetWidth + 'x' + card.offsetHeight);
+    }
+
+    function fitAudioCard(card, cellW, cellH, tag) {
+      var audio = card.querySelector('audio');
+      if (!audio) return;
+      // A control bar is not scaled by the fit: it takes the cell's width and its own
+      // height, and only the caption below it is ever squeezed (settleCaption).
+      card.style.width = cellW + 'px';
+      audio.style.width = '100%';
+      setPending(card, false);
+      fitLog((tag || 'audio') + ': bar ' + r1(audio.offsetWidth) + 'x' + r1(audio.offsetHeight) +
+        ' card ' + card.offsetWidth + 'x' + card.offsetHeight);
+    }
+
     function fitLiveCard(card, cellW, cellH, tag) {
       var wrap = card.querySelector('.live-wrap');
       var frame = card.querySelector('.live-frame');
@@ -869,6 +995,17 @@
     deck.querySelectorAll('img').forEach(function (img) {
       on(img, 'load', scheduleFit);
       on(img, 'error', scheduleFit);
+    });
+    // A video's ratio is only known once its metadata arrives, and its card waits for
+    // it the way an image waits for its bytes. An audio bar has its size from the start.
+    deck.querySelectorAll('video').forEach(function (video) {
+      on(video, 'loadedmetadata', scheduleFit);
+      on(video, 'loadeddata', scheduleFit);
+      on(video, 'error', scheduleFit);
+    });
+    deck.querySelectorAll('audio').forEach(function (audio) {
+      on(audio, 'loadedmetadata', scheduleFit);
+      on(audio, 'error', scheduleFit);
     });
     // An embed that reports nothing (no live helper in the page) is fitted at the
     // size it declared, once it has loaded. A frame whose load went by before the

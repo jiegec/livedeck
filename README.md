@@ -5,6 +5,7 @@ keyboard-driven, two-column deck you can click, swipe and embed live demos in.
 
 - 📑 Content left, media right, both auto-scaled to fit any screen
 - 🖱️ Live, interactive `<iframe>` embeds (simulators, demos, widgets, anything)
+- 🎬 Video and audio with their native controls
 - 🖼️ Click-to-zoom lightbox, overview grid, fullscreen, keyboard & touch navigation
 - 🌍 i18n with built-in `en` / `zh-CN` and easy overrides
 - 🧩 No dependencies, no build step — one CSS file, `livedeck.js`, and an optional `livedeck-live.js`
@@ -58,7 +59,7 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 | Config | `#presentation-config` with `data-*` attributes |
 | Slides | `<section class="slide-source" data-section data-title>` inside `<template id="deck-source">` |
 | Content (left) | `[data-content]` — free-form HTML |
-| Media (right) | children of `[data-media]`: `<img>` or `<iframe>` |
+| Media (right) | children of `[data-media]`: `<img>`, `<iframe>`, `<video>` or `<audio>` |
 | Image caption | `data-caption`, or the image's `alt` when there is none (write `data-caption=""` for none) |
 | Full-width content | `[data-content][data-full]` — with no `[data-media]`, the content takes the whole slide |
 
@@ -81,23 +82,36 @@ Opt out with `<script src="livedeck.js" data-auto="false"></script>` and call
 
 <!-- live iframe; see the live-embed notes below -->
 <iframe src="page.html" data-caption="Shown under the frame"></iframe>
+
+<!-- video: controls are always shown; its ratio comes from its metadata -->
+<video src="clip.mp4" poster="poster.jpg" data-caption="Shown under the video"></video>
+<!-- or several sources, when <video> / <audio> carries no src of its own -->
+<video data-caption="A WebM/MP4 clip">
+  <source src="clip.webm" type="video/webm">
+  <source src="clip.mp4" type="video/mp4">
+</video>
+
+<!-- audio: a fixed-height control bar, never scaled with the cell -->
+<audio src="sound.mp3" data-caption="Shown under the player"></audio>
 ```
 
 An image's caption falls back to its `alt`, so the sentence is written once and serves both
 the screen reader and the reader. `data-caption=""` says "no caption" for an image whose alt
-is there for accessibility alone.
+is there for accessibility alone. A `<video>`/`<audio>` also takes `data-caption`, and
+`loop`, `muted`, `autoplay` and `poster` are passed through to the element. Neither gets an
+enlarge button: their own controls (and a video's fullscreen) are the way to see more.
 
-Nothing has to be declared about a media's size: an image's ratio is read from the image and
-an embed reports its own size, so the deck measures everything at runtime. Cards are laid out
-in a grid whose arrangement the deck picks to show the most media, and each card is exactly
-as wide as its media, so the caption below is neither scaled down with it nor left with a
-pale bar beside it. A live embed keeps its own layout size and is scaled visually, so an
-embedded page is never reflowed to fit.
+Nothing has to be declared about a media's size: an image's ratio is read from the image, an
+embed reports its own size, and a video's ratio is read from its metadata, so the deck
+measures everything at runtime. Cards are laid out in a grid whose arrangement the deck
+picks to show the most media, and each card is exactly as wide as its media, so the caption
+below is neither scaled down with it nor left with a pale bar beside it. A live embed keeps
+its own layout size and is scaled visually, so an embedded page is never reflowed to fit.
 
-Every media card carries an **enlarge button** in the bottom-right corner of the media
-itself, so the caption below it is never asked to make room for the button. It fades in when
-you point at the card (and stays visible where there is no hover). An image opens the
-lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
+Every image and live-embed card carries an **enlarge button** in the bottom-right corner of
+the media itself, so the caption below it is never asked to make room for the button. It
+fades in when you point at the card (and stays visible where there is no hover). An image
+opens the lightbox overlay; a live embed is enlarged by promoting its card to the top layer instead,
 so the embedded page is never copied, reloaded or moved, and it keeps its state, its input
 and its scroll position. Either way the media is scaled up as far as its own aspect ratio
 allows and the box around it follows that size, so no black bars are left over.
